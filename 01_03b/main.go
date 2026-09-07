@@ -1,21 +1,39 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"math/rand"
+	"os"
 	"time"
 )
 
 const path = "entries.json"
 
 // raffleEntry is the struct we unmarshal raffle entries into
+// [DB] If the fields aren't exported, the unmarshal ignores them.  Also seems like all fields must be strings?
 type raffleEntry struct {
-	// TODO: Fill in definition
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // importData reads the raffle entries from file and creates the entries slice.
 func importData() []raffleEntry {
-	panic("NOT IMPLEMENTED")
+	//read the file
+	//if successful, decode into []raffleEntry
+	//if successful, return the resulting slice
+	f, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	var r []raffleEntry
+	err = json.Unmarshal(f, &r)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	return r
 }
 
 // getWinner returns a random winner from a slice of raffle entries.
