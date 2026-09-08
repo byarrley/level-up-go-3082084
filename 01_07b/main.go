@@ -2,37 +2,59 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"slices"
 )
 
 // isBalanced returns whether the given expression
 // has balanced brackets.
-func isBalanced(expr string) bool {
-	var round, square, curly Stack
 
-	//Solution video: I like what the instructor did with the enumerated types (I was thinking something similar), but the logic doesn't work if the closing bracket doesn't follow the opening bracket
-	// As in this case: "(blah (( {} [[ )) ]] "...which I guess isn't terribly useful.
-	//Task: "Given a string mathematical expression, implement a function that outputs if the expression has balanced brackets".  Apparently I didn't understand the problem, so I will update this solution.
-	for _, r := range expr {
-		switch r {
-		case '(':
-			round.Push(r)
-		case '[':
-			square.Push(r)
-		case '{':
-			curly.Push(r)
-		case ')':
-			round.Pop(r)
-		case ']':
-			square.Pop(r)
-		case '}':
-			curly.Pop(r)
+// Task: "Given a string mathematical expression, implement a function that outputs if the expression has balanced brackets".  Apparently I didn't understand the problem, so I will update this solution.
+// balanced: "1 + (2 + 3)"
+// unbalanced: "[1 + ( 3 * 2 ])"
+type opType int
+
+const (
+	openOp opType = iota
+	closeOp
+	otherOp
+)
+
+var validPairs = map[rune]rune{
+	'(': ')',
+	'[': ']',
+	'{': '}',
+}
+
+func getOpType(op rune) opType {
+	for o, c := range validPairs {
+		switch op {
+		case o:
+			return openOp
+		case c:
+			return closeOp
 		}
 	}
-	return round.IsEmpty() && square.IsEmpty() && curly.IsEmpty()
-	//panic("NOT IMPLEMENTED")
+	return otherOp
+}
+
+func isBalanced(expr string) bool {
+	stack := Stack{}
+
+	for _, r := range expr {
+		switch getOpType(r) {
+		case openOp:
+			stack.Push(r)
+		case closeOp:
+			tmp := stack.Pop()
+			if validPairs[tmp] != r {
+				return false
+			}
+		default:
+			continue
+		}
+	}
+	return stack.IsEmpty()
 }
 
 // printResult prints whether the expression is balanced.
@@ -60,16 +82,15 @@ func (s *Stack) Push(i rune) {
 	s.size++
 }
 
-func (s *Stack) Pop(i rune) (rune, error) {
+func (s *Stack) Pop() rune {
 	if s.IsEmpty() {
-		err := fmt.Errorf("Cannot pop from empty stack!")
-		return 0, err
+		return 0
 	}
 
 	tmp := s.data[s.size-1]
 	s.data = slices.Delete(s.data, s.size-1, s.size)
 	s.size--
-	return tmp, nil
+	return tmp
 }
 
 func (s *Stack) Peek() rune {
