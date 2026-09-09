@@ -1,6 +1,12 @@
 package main
 
+//The Task: Given _N_ sorted slices of _K_ songs, implement a function that outputs the merged slice of sorted songs
+//Hints:
+// * The container package will be useful in this challenge.
+// * Remember that the album slices are sorted.
+
 import (
+	"container/heap"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,16 +16,77 @@ import (
 
 const path = "songs.json"
 
+// Playlist is a list of songs sorted by PlayCount that implements heap.Interface (based on https://pkg.go.dev/container/heap@go1.27.1#pkg-overview example)
+type Playlist []*Song
+
+func (pl Playlist) Len() int { return len(pl) }
+
+func (pl Playlist) Less(i, j int) bool {
+	// We want Pop to give us the highest, not lowest, PlayCount so we use greater than here.
+	return pl[i].PlayCount > pl[j].PlayCount
+}
+
+func (pl Playlist) Swap(i, j int) {
+	pl[i], pl[j] = pl[j], pl[i]
+	pl[i].index = i
+	pl[j].index = j
+}
+
+func (pl *Playlist) Push(x any) {
+	n := len(*pl)
+	item := x.(*Song)
+	item.index = n
+	*pl = append(*pl, item)
+}
+
+func (pl *Playlist) Pop() any {
+	old := *pl
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // don't stop the GC from reclaiming the item eventually
+	item.index = -1 // for safety
+	*pl = old[0 : n-1]
+	return item
+}
+
 // Song stores all the song related information
 type Song struct {
 	Name      string `json:"name"`
 	Album     string `json:"album"`
 	PlayCount int64  `json:"play_count"`
+	index     int
 }
 
 // makePlaylist makes the merged sorted list of songs
 func makePlaylist(albums [][]Song) []Song {
-	panic("NOT IMPLEMENTED")
+	/*The plan:
+	* Implement a priority queue that contains the methods of the "heap" interface.  The song's play_count will represent its priority
+	* For each album:
+	* 	Push all songs into the queue
+	* 	???
+	* 	Profit
+	 */
+	var pl Playlist
+	var list []Song
+	idx := 0
+
+	heap.Init(&pl)
+	for aidx := range albums {
+		for sidx := range albums[aidx] {
+			albums[aidx][sidx].index = idx
+			fmt.Printf("s.PlayCount=%d, s.Index=%d, len(albums)=%d\n", albums[aidx][sidx].PlayCount, albums[aidx][sidx].index, len(albums[aidx][:]))
+			pl.Push(&albums[aidx][sidx])
+			idx++
+		}
+	}
+
+	for i := 0; i < pl.Len(); i++ {
+		s := pl.Pop().(*Song)
+		fmt.Printf("s.PlayCount=%d, s.Index=%d\n", s.PlayCount, s.index)
+		list = append(list, *s)
+	}
+	return list
+	//panic("NOT IMPLEMENTED")
 }
 
 func main() {
