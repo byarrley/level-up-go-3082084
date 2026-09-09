@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+//The Task: Given a list of nodes, implement a [recursive] function that ensures that all nodes are visited.
+
 const path = "friends.json"
 
 // Friend represents a friend and their connections.
@@ -42,7 +44,27 @@ func (f *Friends) getRandomFriend() Friend {
 
 // spreadGossip ensures that all the friends in the map have heard the news
 func spreadGossip(root Friend, friends Friends) {
-	panic("NOT IMPLEMENTED")
+
+	//typical case: remove root and root's friends from friends map
+	//base case: friends map is empty
+
+	//root has already heard the gossip, so is no longer a valid recipient
+	delete(friends.fmap, root.ID)
+
+	for _, id := range root.Friends {
+		f := friends.getFriend(id)
+
+		if f.ID != "" {
+			f.hearGossip()
+			delete(friends.fmap, id)
+
+			//If f has any friends that haven't heard the gossip, spread it
+			if len(friends.fmap) > 0 {
+				spreadGossip(f, friends)
+			}
+		}
+	}
+	//panic("NOT IMPLEMENTED")
 }
 
 func main() {
