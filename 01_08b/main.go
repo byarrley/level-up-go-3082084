@@ -45,6 +45,9 @@ func (f *Friends) getRandomFriend() Friend {
 // spreadGossip ensures that all the friends in the map have heard the news
 func spreadGossip(root Friend, friends Friends) {
 
+	//Solution video: the instructor modified this function to take another argument, which is a map of visited nodes.
+	//								I was operating under the assumption that the provided functionality was complete, or I would've kept trying to make the embedded boolean work...I'll try that next.
+
 	//typical case: remove root and root's friends from friends map
 	//base case: friends map is empty
 
