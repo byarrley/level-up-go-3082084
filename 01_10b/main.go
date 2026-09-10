@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+// The Task: Given a simple calculator, implement edge case and input verification that outputs error messages and gracefully shuts down.
+/* Plan:
+* Features:
+	- Calculator only supports the 4 basic operators +,-,*,/
+	- Calculator only supports two numerical operands at a time
+* Identify possible edge cases
+	- Invalid operands
+	- Invalid operators
+	- Not enough tokens in the expression
+	- Too many tokens in the expression
+	- Tokens not separated by spaces
+*/
+
 // operators is the map of legal operators and their functions
 var operators = map[string]func(x, y float64) float64{
 	"+": func(x, y float64) float64 { return x + y },
