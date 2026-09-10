@@ -4,7 +4,9 @@ package main
 //Hints:
 // * The container package will be useful in this challenge.
 // * Remember that the album slices are sorted.
-
+// Solution video: the instructor's implementation is a little different, but uses the idea of a "max heap".
+// Although it looks like go 1.19.3 was available when the course was recorded, the PriorityQueue example seems to be the same as current, so
+// I assume she had a reason for not using it in its entirety
 import (
 	"container/heap"
 	"encoding/json"
