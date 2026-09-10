@@ -63,30 +63,27 @@ func makePlaylist(albums [][]Song) []Song {
 	* Implement a priority queue that contains the methods of the "heap" interface.  The song's play_count will represent its priority
 	* For each album:
 	* 	Push all songs into the queue
-	* 	???
-	* 	Profit
+	* After queue has been populated, pop songs off into a slice and return it
 	 */
 	var pl Playlist
 	var list []Song
 	idx := 0
 
+	//See note regarding the usage of heap.Push/.Pop (https://pkg.go.dev/container/heap@go1.27.1#Interface)
 	heap.Init(&pl)
-	for aidx := range albums {
-		for sidx := range albums[aidx] {
-			albums[aidx][sidx].index = idx
-			fmt.Printf("s.PlayCount=%d, s.Index=%d, len(albums)=%d\n", albums[aidx][sidx].PlayCount, albums[aidx][sidx].index, len(albums[aidx][:]))
-			pl.Push(&albums[aidx][sidx])
+	for _, a := range albums {
+		for _, s := range a {
+			s.index = idx
+			heap.Push(&pl, &s)
 			idx++
 		}
 	}
 
-	for i := 0; i < pl.Len(); i++ {
-		s := pl.Pop().(*Song)
-		fmt.Printf("s.PlayCount=%d, s.Index=%d\n", s.PlayCount, s.index)
+	for range pl {
+		s := heap.Pop(&pl).(*Song)
 		list = append(list, *s)
 	}
 	return list
-	//panic("NOT IMPLEMENTED")
 }
 
 func main() {
