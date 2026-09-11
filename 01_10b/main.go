@@ -22,6 +22,10 @@ import (
 	- Tokens not separated by spaces
 */
 
+// Solution video: the instructor converted the float64 parameters to *float64 (although I'm not sure why),
+//									and returned any errors from each function instead of stopping the program immediately,
+//	 							(which makes sense if the calculator is imported as a standalone package, so as to not take away control from the caller)
+//
 // operators is the map of legal operators and their functions
 var operators = map[string]func(x, y float64) float64{
 	"+": func(x, y float64) float64 { return x + y },
