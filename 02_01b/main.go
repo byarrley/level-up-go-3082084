@@ -8,6 +8,12 @@ import (
 
 // The Task: Given a list of messages and a number N, implement a function that outputs the same message N times concurrently
 // Hint: Goroutines and channels are the Go concurrency mechanisms
+//
+/* Solution video:
+- go routine number printed as part of the output
+- Option 1: use a wait group (which I did)
+- Option 2: use channels (instructor used an empty struct to signal that the goroutine was finished)
+*/
 var messages = []string{
 	"Hello!",
 	"How are you?",
@@ -20,12 +26,12 @@ var messages = []string{
 func repeat(n int, message string) {
 	var wg sync.WaitGroup
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
-		go func(m string) {
-			log.Println(m)
+		go func(i int, m string) {
+			log.Printf("[G%d]: %s", i, m)
 			wg.Done()
-		}(message)
+		}(i, message)
 	}
 	wg.Wait()
 }
