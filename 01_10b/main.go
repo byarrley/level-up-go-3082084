@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -30,16 +32,28 @@ var operators = map[string]func(x, y float64) float64{
 
 // parseOperand parses a string to a float64
 func parseOperand(op string) float64 {
-	parsedOp, _ := strconv.ParseFloat(op, 64)
+	parsedOp, err := strconv.ParseFloat(op, 64)
+
+	if err != nil {
+		log.Fatalf("%s is not a valid operand!", op)
+	}
 	return parsedOp
 }
 
 // calculate returns the result of a 2 operand mathematical expression
 func calculate(expr string) float64 {
 	ops := strings.Fields(expr)
+
+	if l := len(ops); l != 3 {
+		log.Fatalf("Want 3 space separated tokens, got %d", l)
+	}
 	left := parseOperand(ops[0])
 	right := parseOperand(ops[2])
-	f := operators[ops[1]]
+
+	f, ok := operators[ops[1]]
+	if !ok {
+		log.Fatalf("Invalid operator %s.  Valid operators: %q", ops[1], strings.Join(slices.Collect(maps.Keys(operators)), ","))
+	}
 	result := f(left, right)
 	return result
 }
