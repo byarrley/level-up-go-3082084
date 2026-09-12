@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 // The Task: Given a defined list of resources, implement a function that simulates the concurrent allocation of resources to consumer goroutines.
@@ -19,33 +23,171 @@ takeLunch
 - Buffet-style lunch (each consumer takes all 3 courses in order before they exit the line)
 - Line size should be limited so as not to exhaust system resources
 - Assume a single line
-- Each attendee must wait to take a course until the previous attendee has finished taking it
+- Each attendee must wait to take a course until the previous attendee has finished taking it (mutex?)
 - Each attendee takes exactly one of each course
+- Travel and consumption time are excluded from the simulation
 */
 
 // the number of attendees we need to serve lunch to
-const consumerCount = 300
+const consumerCount = 1
+const nQueues = 1    //Serving a buffet lunch to 300 people would take _forever_ with a single queue...but I gotta start somewhere
+const nQueueSize = 3 //At most, a queue can have len(foodCourses) diners actively taking food (everyone else is just waiting to start)
+
+// servers
+const serverCount = (consumerCount / 50) + 1 //from the interwebs
 
 // foodCourses represents the types of resources to pass to the consumers
+//
+//	var foodCourses = []string{
+//		"Caprese Salad",
+//		"Spaghetti Carbonara",
+//		"Vanilla Panna Cotta",
+//	}
 var foodCourses = []string{
 	"Caprese Salad",
-	"Spaghetti Carbonara",
-	"Vanilla Panna Cotta",
 }
 
 // takeLunch is the consumer function for the lunch simulation
 // Change the signature of this function as required
-func takeLunch(name string) {
-	panic("NOT IMPLEMENTED YET")
+func takeLunch(t *table) {
+	//A consumer has to visit all stations to finish "taking" lunch
+	for _, c := range foodCourses {
+		t.stations[c].take()
+		log.Printf("Table: %d, Course: %s, Taken #: %d\n", t.num, c, t.stations[c].taken)
+	}
 }
 
 // serveLunch is the producer function for the lunch simulation.
 // Change the signature of this function as required
-func serveLunch(course string) {
-	panic("NOT IMPLEMENTED YET")
+func serveLunch(t *table) {
+	//Let a single server deliver an entire lunch to simplify the problem
+	log.Printf("Serving lunch at table %d...", t.num)
+
+	for c, s := range t.stations {
+		s.serve()
+		log.Printf("Table: %d, Course: %s, Serving #: %d\n", t.num, c, t.stations[c].served)
+	}
 }
 
 func main() {
 	log.Printf("Welcome to the conference lunch! Serving %d attendees.\n",
 		consumerCount)
+
+	/*Start with base case:
+	- 1 venue (assumed)
+	- 1 table
+	- 1 line per table
+	- 1 course
+	- 1 server
+	- 1 consumer
+	*/
+
+	/*2 wait groups:
+	- One for wait staff
+	- One for clients
+	*/
+
+	// Prepare the venue
+	v := venue{ntables: 1,
+		courses: foodCourses}
+	v.create()
+
+	tbl := &v.tables[0]
+	fmt.Printf("tbl=%v\n", v.tables[0])
+
+	// Set up server/client groups
+	var sg sync.WaitGroup
+	var cg sync.WaitGroup
+
+	// Perform server activities
+	for range serverCount {
+		sg.Go(func() {
+			serveLunch(tbl)
+		})
+	}
+
+	// Perform consumer activities
+	for range len(foodCourses) {
+		cg.Go(func() {
+			takeLunch(tbl)
+		})
+	}
+
+	// Both servers and clients must finish their work before the program exits
+	sg.Wait()
+	cg.Wait()
+}
+
+// Sleep to represent activities; maybe create separate functions for serve/consume actions?
+func randomSleep() {
+	const maxSeconds = 1
+	r := rand.Intn(maxSeconds)
+	time.Sleep(time.Duration(r)*time.Second + 50*time.Millisecond)
+}
+
+/*
+Type breakdown:
+- venue: top level object, containing 1..n tables and 1..m staff, based on the number of consumers
+- table: contains all stations required to serve an entire meal
+- station: object that produces a course, and signals when it's available for consumption.  Tracks how many meals have been served/consumed
+- course: the resource to produce & consume
+*/
+type venue struct {
+	ntables int
+	tables  []table
+	courses []string
+}
+
+func (v *venue) create() {
+	for ii := range v.ntables {
+		tbl := table{
+			num: ii,
+		}
+		v.tables = append(v.tables, tbl)
+		v.tables[ii].setup(ii+1, v.courses)
+	}
+}
+
+// Type representing a collection of stations representing an entire meal
+type table struct {
+	num      int                 //Table number
+	stations map[string]*station //stations associated with this table
+}
+
+// Setup a table with food stations
+func (t *table) setup(n int, fcs []string) {
+	t.num = n
+	t.stations = make(map[string]*station)
+
+	nCourses := len(fcs)
+	for _, fc := range fcs {
+		t.stations[fc] = &station{
+			ready: make(chan struct{}, nCourses),
+			cap:   consumerCount / nQueues,
+		}
+	}
+}
+
+// Type representing a station where a course is served.
+type station struct {
+	cap    int           //Max number of servings
+	served int           //Current served
+	taken  int           //Current taken
+	ready  chan struct{} //Course is available for the next consumer to take
+}
+
+// Really shouldn't even try to serve after a station is at its capacity...do I need to worry about closing the channel here?
+func (s *station) serve() {
+	if s.served != s.cap {
+		randomSleep()
+		s.served++
+		s.ready <- struct{}{}
+	}
+}
+
+func (s *station) take() {
+	if s.taken != s.cap {
+		randomSleep()
+		s.taken++
+	}
 }
