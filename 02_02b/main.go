@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+// The task: Given a list of actions with random durations, implement a function that simulates the concurrent execution
+// of the ordered list of actions
+//
+// Plan:
+//   - Assume that each list of actions has to be performed in order
+//   - Assume that each list of actions can be performed concurrently with other lists...there are some missing actions that are dependent on the other list
+//     but I'm assuming that the lists are simplified to keep the challenge manageable
+//   - Try using channels to signal when a list is complete
 const maxSeconds = 3
 
 type Dog struct {
@@ -74,5 +82,20 @@ func main() {
 }
 
 func executeWalk(ownerActions []func(), dogActions []func()) {
-	panic("NOT IMPLEMENTED")
+	oc := make(chan struct{})
+	dc := make(chan struct{})
+
+	go doActions(ownerActions, oc)
+	go doActions(dogActions, dc)
+
+	<-oc
+	<-dc
+}
+
+// Process a list of actions and signal to the channel when complete
+func doActions(actions []func(), ready chan struct{}) {
+	for _, a := range actions {
+		a()
+	}
+	ready <- struct{}{}
 }
