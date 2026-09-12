@@ -55,19 +55,15 @@ type station struct {
 
 // Really shouldn't even try to serve after a station is at its capacity...do I need to worry about closing the channel here?
 func (s *station) serve() {
-	if s.served != s.cap {
-		log.Printf("Waiting to serve %d...\n", s.served)
-		//randomSleep()
-		s.ready <- struct{}{}
-		s.served++
-	} else {
-		close(s.ready)
-	}
+	log.Printf("Waiting to serve %d...\n", s.served)
+	randomSleep()
+	s.ready <- struct{}{}
+	s.served++
 }
 
 func (s *station) take() {
 	log.Printf("Waiting to take %d...\n", s.taken)
+	randomSleep()
 	<-s.ready
-	//randomSleep()
 	s.taken++
 }
