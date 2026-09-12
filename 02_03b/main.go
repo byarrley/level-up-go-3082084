@@ -45,7 +45,6 @@ const serverCount = (consumerCount / 50) + 1 //from the interwebs
 
 var foodCourses = []string{
 	"Caprese Salad",
-	"Spaghetti Carbonara",
 }
 
 // takeLunch is the consumer function for the lunch simulation
@@ -96,22 +95,31 @@ func main() {
 	v.create()
 
 	// Pending meal orders
-	orders := make(chan int)
+	orders := make(chan int) // to be served
+	meals := make(chan int)  // to be taken
 
 	tbl := &v.tables[0]
+	log.Printf("consumerCount: %d, v.courses: %d", consumerCount, len(v.courses))
 	fmt.Printf("tbl=%v\n", v.tables[0])
 
 	// Set up server/client groups
 	var sg sync.WaitGroup
 	var cg sync.WaitGroup
 
-	// Submit meal orders
+	// Fill 'orders' queue
 	go func() {
 		for m := range consumerCount {
-			//log.Printf("m=%d\n", m)
 			orders <- m
 		}
 		close(orders)
+	}()
+
+	// Fill 'meals' queue
+	go func() {
+		for m := range consumerCount {
+			meals <- m
+		}
+		close(meals)
 	}()
 
 	// Perform server activities
@@ -124,11 +132,12 @@ func main() {
 	}
 
 	// Perform consumer activities
-	log.Printf("consumerCount: %d, v.courses: %d", consumerCount, len(v.courses))
 	for consumer := range min(consumerCount, len(v.courses)) {
-		cg.Go(func() {
-			takeLunch(tbl, uint(consumer))
-		})
+		for range meals {
+			cg.Go(func() {
+				takeLunch(tbl, uint(consumer))
+			})
+		}
 	}
 
 	// Both servers and clients must finish their work before the program exits
