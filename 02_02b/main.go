@@ -14,6 +14,9 @@ import (
 //   - Assume that each list of actions can be performed concurrently with other lists...there are some missing actions that are dependent on the other list
 //     but I'm assuming that the lists are simplified to keep the challenge manageable
 //   - Try using channels to signal when a list is complete
+//
+// Solution:
+//		- Instructor used sync.WaitGroup
 const maxSeconds = 3
 
 type Dog struct {
