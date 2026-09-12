@@ -49,17 +49,17 @@ var foodCourses = []string{
 
 // takeLunch is the consumer function for the lunch simulation
 // Change the signature of this function as required
-func takeLunch(t *table, consumer uint) {
+func takeLunch(t *table, meal int) {
 	//A consumer has to visit all stations in order to finish "taking" lunch
 	for _, c := range foodCourses {
 		t.stations[c].take()
-		log.Printf("Consumer: %d, Table: %d, Course: %s, Taken #: %d\n", consumer, t.num, c, t.stations[c].taken)
+		log.Printf("Meal: %d, Table: %d, Course: %s, Taken #: %d\n", meal, t.num, c, t.stations[c].taken)
 	}
 }
 
 // serveLunch is the producer function for the lunch simulation.
 // Change the signature of this function as required
-func serveLunch(t *table, server uint) {
+func serveLunch(t *table, order int) {
 	//Let a single server deliver an entire lunch to simplify the problem
 	log.Printf("Serving lunch at table %d...", t.num)
 
@@ -67,7 +67,7 @@ func serveLunch(t *table, server uint) {
 		//Because the courses can be served in any order, if 's.serve()' blocks, it's possible that there will be no consumer
 		//  waiting for that course, so the program will deadlock
 		go s.serve()
-		log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
+		log.Printf("Order: %d, Table: %d, Course: %s, Served #: %d\n", order, t.num, c, t.stations[c].served)
 	}
 }
 
@@ -109,10 +109,10 @@ func main() {
 		close(orders)
 	}()
 
-	for server := range serverCount {
-		for range orders {
+	for range serverCount {
+		for o := range orders {
 			sg.Go(func() {
-				serveLunch(tbl, uint(server))
+				serveLunch(tbl, o)
 			})
 		}
 	}
@@ -128,10 +128,10 @@ func main() {
 		}
 		close(meals)
 	}()
-	for consumer := range min(consumerCount, len(v.courses)) {
-		for range meals {
+	for range min(consumerCount, len(v.courses)) {
+		for m := range meals {
 			cg.Go(func() {
-				takeLunch(tbl, uint(consumer))
+				takeLunch(tbl, m)
 			})
 		}
 	}
@@ -145,5 +145,5 @@ func main() {
 func randomSleep() {
 	const maxSeconds = 1
 	r := rand.Intn(maxSeconds)
-	time.Sleep(time.Duration(r)*time.Second + 50*time.Millisecond)
+	time.Sleep(time.Duration(r)*time.Second + 500*time.Millisecond)
 }
