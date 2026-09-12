@@ -31,41 +31,44 @@ takeLunch
 // the number of attendees we need to serve lunch to
 const consumerCount = 1
 const nQueues = 1    //Serving a buffet lunch to 300 people would take _forever_ with a single queue...but I gotta start somewhere
-const nQueueSize = 3 //At most, a queue can have len(foodCourses) diners actively taking food (everyone else is just waiting to start)
+const nQueueSize = 1 //At most, a queue can have len(foodCourses) diners actively taking food (everyone else is just waiting to start)
 
 // servers
 const serverCount = (consumerCount / 50) + 1 //from the interwebs
 
 // foodCourses represents the types of resources to pass to the consumers
-//
-//	var foodCourses = []string{
-//		"Caprese Salad",
-//		"Spaghetti Carbonara",
-//		"Vanilla Panna Cotta",
-//	}
+// var foodCourses = []string{
+// 	"Caprese Salad",
+// 	"Spaghetti Carbonara",
+// 	"Vanilla Panna Cotta",
+// }
+
 var foodCourses = []string{
 	"Caprese Salad",
 }
 
 // takeLunch is the consumer function for the lunch simulation
 // Change the signature of this function as required
-func takeLunch(t *table) {
+func takeLunch(t *table, consumer uint) {
 	//A consumer has to visit all stations to finish "taking" lunch
 	for _, c := range foodCourses {
 		t.stations[c].take()
-		log.Printf("Table: %d, Course: %s, Taken #: %d\n", t.num, c, t.stations[c].taken)
+		log.Printf("Consumer: %d, Table: %d, Course: %s, Taken #: %d\n", consumer, t.num, c, t.stations[c].taken)
 	}
 }
 
 // serveLunch is the producer function for the lunch simulation.
 // Change the signature of this function as required
-func serveLunch(t *table) {
+func serveLunch(o <-chan int, t *table, server uint) {
 	//Let a single server deliver an entire lunch to simplify the problem
 	log.Printf("Serving lunch at table %d...", t.num)
 
-	for c, s := range t.stations {
-		s.serve()
-		log.Printf("Table: %d, Course: %s, Serving #: %d\n", t.num, c, t.stations[c].served)
+	for range o {
+		//log.Printf("o=%#v\n", o)
+		for c, s := range t.stations {
+			s.serve()
+			log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
+		}
 	}
 }
 
@@ -92,6 +95,9 @@ func main() {
 		courses: foodCourses}
 	v.create()
 
+	// Pending meal orders
+	orders := make(chan int)
+
 	tbl := &v.tables[0]
 	fmt.Printf("tbl=%v\n", v.tables[0])
 
@@ -100,18 +106,26 @@ func main() {
 	var cg sync.WaitGroup
 
 	// Perform server activities
-	for range serverCount {
+	for server := range serverCount {
 		sg.Go(func() {
-			serveLunch(tbl)
+			serveLunch(orders, tbl, uint(server))
 		})
 	}
 
 	// Perform consumer activities
-	for range len(foodCourses) {
+	log.Printf("consumerCount: %d, v.courses: %d", consumerCount, len(v.courses))
+	for consumer := range min(consumerCount, len(v.courses)) {
 		cg.Go(func() {
-			takeLunch(tbl)
+			takeLunch(tbl, uint(consumer))
 		})
 	}
+
+	// Submit meal orders
+	for m := range consumerCount {
+		orders <- m
+		log.Printf("m=%d\n", m)
+	}
+	close(orders)
 
 	// Both servers and clients must finish their work before the program exits
 	sg.Wait()
@@ -159,7 +173,7 @@ func (t *table) setup(n int, fcs []string) {
 	t.num = n
 	t.stations = make(map[string]*station)
 
-	nCourses := len(fcs)
+	nCourses := 0
 	for _, fc := range fcs {
 		t.stations[fc] = &station{
 			ready: make(chan struct{}, nCourses),
@@ -179,7 +193,8 @@ type station struct {
 // Really shouldn't even try to serve after a station is at its capacity...do I need to worry about closing the channel here?
 func (s *station) serve() {
 	if s.served != s.cap {
-		randomSleep()
+		log.Println("Waiting to serve...")
+		//randomSleep()
 		s.served++
 		s.ready <- struct{}{}
 	}
@@ -187,7 +202,9 @@ func (s *station) serve() {
 
 func (s *station) take() {
 	if s.taken != s.cap {
-		randomSleep()
+		log.Println("Waiting to take...")
+		<-s.ready
+		//randomSleep()
 		s.taken++
 	}
 }
