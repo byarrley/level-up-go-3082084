@@ -99,15 +99,9 @@ func executeWalk(actionList <-chan []func()) {
 		go doActions(a, done)
 	}
 
-	nDone := 0
-	for range done {
-		nDone++
-
-		if nDone == nList {
-			//Normally, the receiver wouldn't close a channel, but since we know exactly how many responses to expect,
-			//  and the channel is local to the function, it seems safe to do here?
-			close(done)
-		}
+	//Adapting the instructor's solution from 02_01e...which is more concise than attempting to range over 'done' and figure out when to close it
+	for range nList {
+		<-done
 	}
 }
 
@@ -116,5 +110,6 @@ func doActions(actions []func(), done chan<- struct{}) {
 	for _, a := range actions {
 		a()
 	}
+	//'defer' only works with function calls
 	done <- struct{}{}
 }
