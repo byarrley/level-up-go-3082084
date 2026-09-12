@@ -45,30 +45,30 @@ const serverCount = (consumerCount / 50) + 1 //from the interwebs
 
 var foodCourses = []string{
 	"Caprese Salad",
+	"Spaghetti Carbonara",
 }
 
 // takeLunch is the consumer function for the lunch simulation
 // Change the signature of this function as required
 func takeLunch(t *table, consumer uint) {
-	//A consumer has to visit all stations to finish "taking" lunch
+	//A consumer has to visit all stations in order to finish "taking" lunch
 	for _, c := range foodCourses {
-		t.stations[c].take()
 		log.Printf("Consumer: %d, Table: %d, Course: %s, Taken #: %d\n", consumer, t.num, c, t.stations[c].taken)
+		t.stations[c].take()
 	}
 }
 
 // serveLunch is the producer function for the lunch simulation.
 // Change the signature of this function as required
-func serveLunch(o <-chan int, t *table, server uint) {
+func serveLunch(t *table, server uint) {
 	//Let a single server deliver an entire lunch to simplify the problem
 	log.Printf("Serving lunch at table %d...", t.num)
 
-	for range o {
-		//log.Printf("o=%#v\n", o)
-		for c, s := range t.stations {
-			s.serve()
-			log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
-		}
+	for c, s := range t.stations {
+		log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
+		//Because the courses can be served in any order, if 's.serve()' blocks, it's possible that there will be no consumer
+		//  waiting for that course, so the program will deadlock
+		go s.serve()
 	}
 }
 
@@ -105,11 +105,22 @@ func main() {
 	var sg sync.WaitGroup
 	var cg sync.WaitGroup
 
+	// Submit meal orders
+	go func() {
+		for m := range consumerCount {
+			//log.Printf("m=%d\n", m)
+			orders <- m
+		}
+		close(orders)
+	}()
+
 	// Perform server activities
 	for server := range serverCount {
-		sg.Go(func() {
-			serveLunch(orders, tbl, uint(server))
-		})
+		for range orders {
+			sg.Go(func() {
+				serveLunch(tbl, uint(server))
+			})
+		}
 	}
 
 	// Perform consumer activities
@@ -119,13 +130,6 @@ func main() {
 			takeLunch(tbl, uint(consumer))
 		})
 	}
-
-	// Submit meal orders
-	for m := range consumerCount {
-		log.Printf("m=%d\n", m)
-		orders <- m
-	}
-	close(orders)
 
 	// Both servers and clients must finish their work before the program exits
 	sg.Wait()
