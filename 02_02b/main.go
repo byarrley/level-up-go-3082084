@@ -16,7 +16,7 @@ import (
 //   - Try using channels to signal when a list is complete
 //
 // Solution:
-//		- Instructor used sync.WaitGroup
+//   - Instructor used sync.WaitGroup
 const maxSeconds = 3
 
 type Dog struct {
@@ -81,24 +81,40 @@ func main() {
 		dog.findTreats,
 		dog.runOutside,
 	}
-	executeWalk(ownerActions, dogActions)
+
+	jobs := make(chan []func(), 2)
+	jobs <- ownerActions
+	jobs <- dogActions
+	close(jobs)
+
+	executeWalk(jobs)
 }
 
-func executeWalk(ownerActions []func(), dogActions []func()) {
-	oc := make(chan struct{})
-	dc := make(chan struct{})
+func executeWalk(actionList <-chan []func()) {
+	//This may not be guaranteed to work if actionList is an unbuffered channel
+	nList := len(actionList)
+	done := make(chan struct{})
 
-	go doActions(ownerActions, oc)
-	go doActions(dogActions, dc)
+	for a := range actionList {
+		go doActions(a, done)
+	}
 
-	<-oc
-	<-dc
+	nDone := 0
+	for range done {
+		nDone++
+
+		if nDone == nList {
+			//Normally, the receiver wouldn't close a channel, but since we know exactly how many responses to expect,
+			//  and the channel is local to the function, it seems safe to do here?
+			close(done)
+		}
+	}
 }
 
-// Process a list of actions and signal to the channel when complete
-func doActions(actions []func(), ready chan struct{}) {
+// Process a list of actions
+func doActions(actions []func(), done chan<- struct{}) {
 	for _, a := range actions {
 		a()
 	}
-	ready <- struct{}{}
+	done <- struct{}{}
 }
