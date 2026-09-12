@@ -29,7 +29,7 @@ takeLunch
 */
 
 // the number of attendees we need to serve lunch to
-const consumerCount = 1
+const consumerCount = 100
 const nQueues = 1    //Serving a buffet lunch to 300 people would take _forever_ with a single queue...but I gotta start somewhere
 const nQueueSize = 1 //At most, a queue can have len(foodCourses) diners actively taking food (everyone else is just waiting to start)
 
@@ -52,8 +52,8 @@ var foodCourses = []string{
 func takeLunch(t *table, consumer uint) {
 	//A consumer has to visit all stations in order to finish "taking" lunch
 	for _, c := range foodCourses {
-		log.Printf("Consumer: %d, Table: %d, Course: %s, Taken #: %d\n", consumer, t.num, c, t.stations[c].taken)
 		t.stations[c].take()
+		log.Printf("Consumer: %d, Table: %d, Course: %s, Taken #: %d\n", consumer, t.num, c, t.stations[c].taken)
 	}
 }
 
@@ -64,10 +64,10 @@ func serveLunch(t *table, server uint) {
 	log.Printf("Serving lunch at table %d...", t.num)
 
 	for c, s := range t.stations {
-		log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
 		//Because the courses can be served in any order, if 's.serve()' blocks, it's possible that there will be no consumer
 		//  waiting for that course, so the program will deadlock
 		go s.serve()
+		log.Printf("Server: %d, Table: %d, Course: %s, Served #: %d\n", server, t.num, c, t.stations[c].served)
 	}
 }
 
@@ -94,18 +94,13 @@ func main() {
 		courses: foodCourses}
 	v.create()
 
-	// Pending meal orders
-	orders := make(chan int) // to be served
-	meals := make(chan int)  // to be taken
-
 	tbl := &v.tables[0]
 	log.Printf("consumerCount: %d, v.courses: %d", consumerCount, len(v.courses))
 	fmt.Printf("tbl=%v\n", v.tables[0])
 
-	// Set up server/client groups
+	// Perform server activities
 	var sg sync.WaitGroup
-	var cg sync.WaitGroup
-
+	orders := make(chan int) // to be served
 	// Fill 'orders' queue
 	go func() {
 		for m := range consumerCount {
@@ -114,15 +109,6 @@ func main() {
 		close(orders)
 	}()
 
-	// Fill 'meals' queue
-	go func() {
-		for m := range consumerCount {
-			meals <- m
-		}
-		close(meals)
-	}()
-
-	// Perform server activities
 	for server := range serverCount {
 		for range orders {
 			sg.Go(func() {
@@ -132,6 +118,16 @@ func main() {
 	}
 
 	// Perform consumer activities
+	var cg sync.WaitGroup
+
+	// Fill 'meals' queue
+	meals := make(chan int) // to be taken
+	go func() {
+		for m := range consumerCount {
+			meals <- m
+		}
+		close(meals)
+	}()
 	for consumer := range min(consumerCount, len(v.courses)) {
 		for range meals {
 			cg.Go(func() {
