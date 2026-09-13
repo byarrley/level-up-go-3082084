@@ -40,19 +40,12 @@ func (l *Lunch) Begin() {
 		l.diners)
 
 	log.Printf("consumerCount: %d, l.Courses: %d", l.diners, len(l.Courses))
-	// fmt.Printf("tbl=%v\n", l.tables[0])
 
 	// Perform server activities
-	var sg sync.WaitGroup
-	orders := make(chan int) // to be served
 	// Fill 'orders' queue
-	go func() {
-		for m := range l.diners {
-			orders <- m % len(l.tables)
-		}
-		close(orders)
-	}()
+	orders := l.createOrderQueue()
 
+	var sg sync.WaitGroup
 	for range l.staff {
 		for o := range orders {
 			sg.Go(func() {
@@ -62,17 +55,11 @@ func (l *Lunch) Begin() {
 	}
 
 	// Perform consumer activities
-	var cg sync.WaitGroup
-
 	// Fill 'meals' queue
-	meals := make(chan int) // to be taken
-	go func() {
-		for m := range l.diners {
-			meals <- m % len(l.tables)
-		}
-		close(meals)
-	}()
-	for range min(l.diners, int(len(l.Courses))) {
+	meals := l.createOrderQueue()
+
+	var cg sync.WaitGroup
+	for range min(l.diners, len(l.Courses)) {
 		for m := range meals {
 			cg.Go(func() {
 				l.tables[m].takeLunch(m)
@@ -88,6 +75,18 @@ func (l *Lunch) Begin() {
 func (l *Lunch) End() {
 	//Lunch is over!
 	log.Println("Lunch is over!")
+}
+
+func (l *Lunch) createOrderQueue() <-chan int {
+	jobs := make(chan int) // stream of table numbers to serve/take meals from
+	// Fill 'jobs' queue
+	go func() {
+		for m := range l.diners {
+			jobs <- m % len(l.tables)
+		}
+		close(jobs)
+	}()
+	return jobs
 }
 
 // Type representing a collection of stations representing an entire meal
