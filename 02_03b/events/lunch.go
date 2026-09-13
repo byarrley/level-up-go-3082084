@@ -1,7 +1,6 @@
 package events
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"sync"
@@ -41,15 +40,15 @@ func (l *Lunch) Begin() {
 		l.diners)
 
 	log.Printf("consumerCount: %d, l.Courses: %d", l.diners, len(l.Courses))
-	fmt.Printf("tbl=%v\n", l.tables[0])
-	tbl := l.tables[0]
+	// fmt.Printf("tbl=%v\n", l.tables[0])
+
 	// Perform server activities
 	var sg sync.WaitGroup
 	orders := make(chan int) // to be served
 	// Fill 'orders' queue
 	go func() {
 		for m := range l.diners {
-			orders <- m
+			orders <- m % len(l.tables)
 		}
 		close(orders)
 	}()
@@ -57,7 +56,7 @@ func (l *Lunch) Begin() {
 	for range l.staff {
 		for o := range orders {
 			sg.Go(func() {
-				tbl.serveLunch(o)
+				l.tables[o].serveLunch(o)
 			})
 		}
 	}
@@ -69,14 +68,14 @@ func (l *Lunch) Begin() {
 	meals := make(chan int) // to be taken
 	go func() {
 		for m := range l.diners {
-			meals <- m
+			meals <- m % len(l.tables)
 		}
 		close(meals)
 	}()
 	for range min(l.diners, int(len(l.Courses))) {
 		for m := range meals {
 			cg.Go(func() {
-				tbl.takeLunch(m)
+				l.tables[m].takeLunch(m)
 			})
 		}
 	}

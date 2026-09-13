@@ -25,7 +25,7 @@ takeLunch
 */
 
 // the number of attendees we need to serve lunch to
-const consumerCount = 1
+const consumerCount = 2
 
 // servers
 const serverCount = (consumerCount / 50) + 1 //from the interwebs
@@ -57,7 +57,7 @@ func main() {
 	*/
 
 	// Prepare the events
-	l := events.Lunch{Ntables: 1,
+	l := events.Lunch{Ntables: 2,
 		Courses: foodCourses}
 
 	//Create the conference and register each event
