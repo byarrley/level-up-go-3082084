@@ -37,6 +37,9 @@ func (l *Lunch) Plan(attendees int) {
 
 func (l *Lunch) Begin() {
 	// Start lunch
+	log.Printf("Welcome to the conference lunch! Serving %d attendees.\n",
+		l.diners)
+
 	log.Printf("consumerCount: %d, l.Courses: %d", l.diners, len(l.Courses))
 	fmt.Printf("tbl=%v\n", l.tables[0])
 	tbl := l.tables[0]

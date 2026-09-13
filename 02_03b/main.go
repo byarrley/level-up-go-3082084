@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"lug/02_03b/events"
 )
 
@@ -43,9 +42,6 @@ var foodCourses = []string{
 }
 
 func main() {
-	log.Printf("Welcome to the conference lunch! Serving %d attendees.\n",
-		consumerCount)
-
 	/*Start with base case:
 	- 1 conference (assumed)
 	- 1 event (lunch)
@@ -60,11 +56,17 @@ func main() {
 	- One for clients
 	*/
 
-	// Prepare the event
+	// Prepare the events
 	l := events.Lunch{Ntables: 1,
 		Courses: foodCourses}
-	l.Plan(consumerCount)
-	l.Begin()
-	l.End()
 
+	//Create the conference and register each event
+	c := Conference{attendees: consumerCount}
+	c.register(&l)
+
+	//Start the conference
+	c.open()
+
+	//End the conference
+	c.close()
 }
