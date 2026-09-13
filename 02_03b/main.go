@@ -27,9 +27,6 @@ takeLunch
 // the number of attendees we need to serve lunch to
 const consumerCount = 2
 
-// servers
-const serverCount = (consumerCount / 50) + 1 //from the interwebs
-
 // foodCourses represents the types of resources to pass to the consumers
 // var foodCourses = []string{
 // 	"Caprese Salad",
@@ -45,15 +42,6 @@ func main() {
 	/*Start with base case:
 	- 1 conference (assumed)
 	- 1 event (lunch)
-	- 1 table & 1 line per table
-	- 1 course
-	- 1 server
-	- 1 consumer
-	*/
-
-	/*2 wait groups:
-	- One for wait staff
-	- One for clients
 	*/
 
 	// Prepare the events

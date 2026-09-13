@@ -14,6 +14,18 @@ import (
 - course: the resource to produce & consume
 */
 
+/* base case:
+- 1 table & 1 line per table
+- 1 course
+- 1 server
+- 1 consumer
+*/
+
+/*2 wait groups:
+- One for wait staff to deliver orders
+- One for clients to take meals
+*/
+
 type Lunch struct {
 	Ntables int
 	staff   int
@@ -39,7 +51,7 @@ func (l *Lunch) Begin() {
 	log.Printf("Welcome to the conference lunch! Serving %d attendees.\n",
 		l.diners)
 
-	log.Printf("consumerCount: %d, l.Courses: %d", l.diners, len(l.Courses))
+	log.Printf("l.diners: %d, l.staff: %d, l.Courses: %d", l.diners, l.staff, len(l.Courses))
 
 	// Perform server activities
 	// Fill 'orders' queue
@@ -142,14 +154,14 @@ type station struct {
 }
 
 func (s *station) serve() {
-	log.Printf("Waiting to serve %d...\n", s.served)
+	// log.Printf("Waiting to serve %d...\n", s.served)
 	randomSleep()
 	s.ready <- struct{}{}
 	s.served++
 }
 
 func (s *station) take() {
-	log.Printf("Waiting to take %d...\n", s.taken)
+	// log.Printf("Waiting to take %d...\n", s.taken)
 	randomSleep()
 	<-s.ready
 	s.taken++
