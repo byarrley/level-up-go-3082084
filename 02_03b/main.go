@@ -26,17 +26,9 @@ func main() {
 	- 1 event (lunch)
 	*/
 
-	const eventStream = `
-		{
-			"lunch": {
-				"num_diners": 2,
-				"staff_ratio": 50, 
-				"num_tables": 2,
-				"food_courses": ["Caprese Salad", "Spaghetti Carbonara"]
-			}
-		}
-	`
-	c := NewConference(eventStream)
+	confFile := "./conference.json"
+
+	c := NewConference(confFile)
 
 	// //Start the conference
 	c.open()

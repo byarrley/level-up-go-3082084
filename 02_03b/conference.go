@@ -6,7 +6,7 @@ import (
 	"log"
 	"lug/02_03b/events"
 	_ "lug/02_03b/events"
-	"strings"
+	"os"
 )
 
 /*
@@ -27,11 +27,14 @@ Type breakdown:
 
 type Conference []Event
 
-//	func (c *Conference) register(e Event) {
-//		c.events = append(c.events, e)
-//	}
-func NewConference(es string) *Conference {
-	dec := json.NewDecoder(strings.NewReader(es))
+func NewConference(path string) *Conference {
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Could not open %s", path)
+	}
+	defer f.Close()
+
+	dec := json.NewDecoder(f)
 	p := make(map[string]json.RawMessage)
 	for {
 		if err := dec.Decode(&p); err == io.EOF {

@@ -1,0 +1,11 @@
+{
+	"lunch": {
+		"num_diners": 3,
+		"staff_ratio": 50,
+		"num_tables": 2,
+		"food_courses": [
+			"Caprese Salad",
+			"Spaghetti Carbonara"
+		]
+	}
+}
