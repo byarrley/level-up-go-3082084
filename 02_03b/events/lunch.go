@@ -28,10 +28,10 @@ import (
 */
 
 type LunchPlan struct {
-	Diners     int      `json:"num_diners"`
-	StaffRatio int      `json:"staff_ratio"`
-	TableCount int      `json:"num_tables"`
-	Courses    []string `json:"food_courses"`
+	Diners          int      `json:"num_diners"`
+	DinerStaffRatio int      `json:"diner_staff_ratio"`
+	TableCount      int      `json:"num_tables"`
+	Courses         []string `json:"food_courses"`
 }
 
 func NewLunchPlanJSON(j json.RawMessage) *LunchPlan {
@@ -53,7 +53,7 @@ type Lunch struct {
 
 func (l *Lunch) Plan(p LunchPlan) {
 	l.diners = p.Diners
-	l.staff = (l.diners / p.StaffRatio) + 1 //from the interwebs
+	l.staff = (l.diners / p.DinerStaffRatio) + 1 //from the interwebs
 	l.courses = p.Courses
 
 	for ii := range p.TableCount {
