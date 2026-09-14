@@ -62,7 +62,6 @@ func (c Conference) open() {
 	log.Printf("Starting conference with %d events!", len(c))
 
 	for _, e := range c {
-		// e.Plan(c.attendees)
 		e.Begin()
 		e.End()
 	}

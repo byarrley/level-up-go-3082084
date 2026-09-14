@@ -20,20 +20,6 @@ takeLunch
 - Travel and consumption time are excluded from the simulation
 */
 
-// the number of attendees we need to serve lunch to
-// const consumerCount = 2
-
-// foodCourses represents the types of resources to pass to the consumers
-// var foodCourses = []string{
-// 	"Caprese Salad",
-// 	"Spaghetti Carbonara",
-// 	"Vanilla Panna Cotta",
-// }
-
-// var foodCourses = []string{
-// 	"Caprese Salad",
-// }
-
 func main() {
 	/*Start with base case:
 	- 1 conference (assumed)
