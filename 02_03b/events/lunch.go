@@ -1,6 +1,7 @@
 package events
 
 import (
+	"encoding/json"
 	"log"
 	"math/rand"
 	"sync"
@@ -26,23 +27,41 @@ import (
 - One for clients to take meals
 */
 
-type Lunch struct {
-	Ntables int
-	staff   int
-	diners  int
-	tables  []table
-	Courses []string
+type LunchPlan struct {
+	Diners     int      `json:"num_diners"`
+	StaffRatio int      `json:"staff_ratio"`
+	TableCount int      `json:"num_tables"`
+	Courses    []string `json:"food_courses"`
 }
 
-func (l *Lunch) Plan(attendees int) {
-	l.diners = attendees
-	l.staff = (attendees / 50) + 1 //from the interwebs
-	for ii := range l.Ntables {
+func NewLunchPlanJSON(j json.RawMessage) *LunchPlan {
+	var p LunchPlan
+	json.Unmarshal(j, &p)
+	return &p
+}
+
+func (p LunchPlan) Review() {
+	log.Printf("p=%#v", p)
+}
+
+type Lunch struct {
+	diners  int
+	staff   int
+	courses []string
+	tables  []table
+}
+
+func (l *Lunch) Plan(p LunchPlan) {
+	l.diners = p.Diners
+	l.staff = (l.diners / p.StaffRatio) + 1 //from the interwebs
+	l.courses = p.Courses
+
+	for ii := range p.TableCount {
 		tbl := table{
 			num: ii,
 		}
 		l.tables = append(l.tables, tbl)
-		l.tables[ii].setup(ii+1, l.Courses)
+		l.tables[ii].setup(ii+1, l.courses)
 	}
 }
 
@@ -51,7 +70,7 @@ func (l *Lunch) Begin() {
 	log.Printf("Welcome to the conference lunch! Serving %d attendees.\n",
 		l.diners)
 
-	log.Printf("l.diners: %d, l.staff: %d, l.Courses: %d", l.diners, l.staff, len(l.Courses))
+	log.Printf("l.diners: %d, l.staff: %d, l.courses: %d", l.diners, l.staff, len(l.courses))
 
 	// Perform server activities
 	// Fill 'orders' queue
@@ -71,7 +90,7 @@ func (l *Lunch) Begin() {
 	meals := l.createOrderQueue()
 
 	var cg sync.WaitGroup
-	for range min(l.diners, len(l.Courses)) {
+	for range min(l.diners, len(l.courses)) {
 		for m := range meals {
 			cg.Go(func() {
 				l.tables[m].takeLunch(m)

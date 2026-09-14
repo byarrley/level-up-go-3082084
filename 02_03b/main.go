@@ -1,9 +1,5 @@
 package main
 
-import (
-	"lug/02_03b/events"
-)
-
 // The Task: Given a defined list of resources, implement a function that simulates the concurrent allocation of resources to consumer goroutines.
 // Hint: A signal channel, `var signal chan struct{}`, is a channel whose purpose is to synchronize goroutines
 
@@ -25,7 +21,7 @@ takeLunch
 */
 
 // the number of attendees we need to serve lunch to
-const consumerCount = 2
+// const consumerCount = 2
 
 // foodCourses represents the types of resources to pass to the consumers
 // var foodCourses = []string{
@@ -34,9 +30,9 @@ const consumerCount = 2
 // 	"Vanilla Panna Cotta",
 // }
 
-var foodCourses = []string{
-	"Caprese Salad",
-}
+// var foodCourses = []string{
+// 	"Caprese Salad",
+// }
 
 func main() {
 	/*Start with base case:
@@ -44,17 +40,21 @@ func main() {
 	- 1 event (lunch)
 	*/
 
-	// Prepare the events
-	l := events.Lunch{Ntables: 2,
-		Courses: foodCourses}
+	const eventStream = `
+		{
+			"lunch": {
+				"num_diners": 2,
+				"staff_ratio": 50, 
+				"num_tables": 2,
+				"food_courses": ["Caprese Salad", "Spaghetti Carbonara"]
+			}
+		}
+	`
+	c := NewConference(eventStream)
 
-	//Create the conference and register each event
-	c := Conference{attendees: consumerCount}
-	c.register(&l)
-
-	//Start the conference
+	// //Start the conference
 	c.open()
 
-	//End the conference
+	// //End the conference
 	c.close()
 }
