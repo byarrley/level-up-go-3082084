@@ -80,7 +80,7 @@ func (l *Lunch) Begin() {
 	for range l.staff {
 		for o := range orders {
 			sg.Go(func() {
-				l.tables[o].serveLunch(o)
+				l.tables[o].serveLunch()
 			})
 		}
 	}
@@ -93,12 +93,12 @@ func (l *Lunch) Begin() {
 	for range min(l.diners, len(l.courses)) {
 		for m := range meals {
 			cg.Go(func() {
-				l.tables[m].takeLunch(m)
+				l.tables[m].takeLunch()
 			})
 		}
 	}
 
-	// Both servers and clients must finish their work before the program exits
+	// Both servers and clients must finish their work before the function exits
 	sg.Wait()
 	cg.Wait()
 }
@@ -133,37 +133,33 @@ func (t *table) setup(n int, fcs []string) {
 	t.stations = make(map[string]*station)
 	t.courses = fcs
 
-	nCourses := 0
 	for _, fc := range t.courses {
+		//Use buffer size of 1 to ensure that a server can visit all stations w/o blocking a diner
 		t.stations[fc] = &station{
-			ready: make(chan struct{}, nCourses),
+			ready: make(chan struct{}, 1),
 		}
 	}
 }
 
 // takeLunch is the consumer function for the lunch simulation
 // Change the signature of this function as required
-func (t *table) takeLunch(meal int) {
+func (t *table) takeLunch() {
 	//A consumer has to visit all stations in order to finish "taking" lunch
 	for _, c := range t.courses {
 		t.stations[c].take()
-		log.Printf("Meal: %d, Table: %d, Course: %s, Taken #: %d\n", meal, t.num, c, t.stations[c].taken)
+		log.Printf("Table: %d, Course: %s, Taken #: %d\n", t.num, c, t.stations[c].taken)
 	}
 }
 
 // serveLunch is the producer function for the lunch simulation.
 // Change the signature of this function as required
-func (t *table) serveLunch(order int) {
+func (t *table) serveLunch() {
 	//Let a single server deliver an entire lunch to simplify the problem
 	log.Printf("Serving lunch at table %d...", t.num)
 
 	for c, s := range t.stations {
-		//Because the courses can be served in any order, if 's.serve()' blocks, it's possible that there will be no consumer
-		//  waiting for that course, so the program will deadlock
-		go func() {
-			s.serve()
-			log.Printf("Order: %d, Table: %d, Course: %s, Served #: %d\n", order, t.num, c, t.stations[c].served)
-		}()
+		s.serve()
+		log.Printf("Table: %d, Course: %s, Served #: %d\n", t.num, c, t.stations[c].served)
 	}
 }
 
