@@ -160,8 +160,10 @@ func (t *table) serveLunch(order int) {
 	for c, s := range t.stations {
 		//Because the courses can be served in any order, if 's.serve()' blocks, it's possible that there will be no consumer
 		//  waiting for that course, so the program will deadlock
-		go s.serve()
-		log.Printf("Order: %d, Table: %d, Course: %s, Served #: %d\n", order, t.num, c, t.stations[c].served)
+		go func() {
+			s.serve()
+			log.Printf("Order: %d, Table: %d, Course: %s, Served #: %d\n", order, t.num, c, t.stations[c].served)
+		}()
 	}
 }
 
