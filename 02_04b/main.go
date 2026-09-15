@@ -7,7 +7,20 @@ import (
 	"time"
 )
 
-//the amount of bidders we have at our auction
+// The Task: Given a list of resources, implement a function that simulates the concurrent management and allocation of bids for those resources
+/* Simplifications:
+- All bidders start with equal amounts of money
+- All bids will be integer amounts
+- All bidders will bid for all items
+- If a bidder is out of money, they will place a 0 bid
+- No minimum prices for our items
+- Items are sold one by one, sequentially
+
+Hints: Make use of the mechanisms we are already familiar with.  You've got this!
+
+*/
+
+// the amount of bidders we have at our auction
 const bidderCount = 10
 
 // initial wallet value for all bidders
