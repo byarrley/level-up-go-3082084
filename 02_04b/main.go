@@ -18,6 +18,14 @@ import (
 
 Hints: Make use of the mechanisms we are already familiar with.  You've got this!
 
+Plan
+- For each item
+	* Gather bids from the participants
+		- Bids can range from 0 up to bidder.wallet
+	* Identify the bidder with the highest bid, deduct the amount from their wallet
+
+Notes
+- Not sure why the bidders are placing bids as soon as they're created (without an item being announced), so I will move that call
 */
 
 // the amount of bidders we have at our auction
