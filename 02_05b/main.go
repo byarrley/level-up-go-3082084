@@ -5,6 +5,16 @@ import (
 	"log"
 )
 
+// The Task: Given a faulty concurrent simulation, implement a fix to ensure that there are no race conditions or crashes
+/* Simplifications:
+- We will use fulfilled orderes as a proxy to passing time
+- We will not care about which customer has ordered which coffee
+- We will not maintain any coffee types; all orders will be represented by the empty struct - struct{}
+
+Hints:
+- Run the program using the '-race' flag to detect bugs.  Make use of stack traces on potential crashes as well.
+*/
+
 // setup constants
 const baristaCount = 3
 const customerCount = 20
