@@ -64,26 +64,22 @@ type auctioneer struct {
 
 // runAuction and manages the auction for all the items to be sold
 // Change the signature of this function as required
-func (a *auctioneer) runAuction() {
+func (a *auctioneer) runAuction(openc chan<- struct{}, bidc <-chan bid) {
 
 	for _, item := range items {
-		bc := make(chan *bid)
 		log.Printf("Opening bids for %s!\n", item)
 
-		var bids []bid = make([]bid, 0)
-		//Each bidder places their bid on the channel (bc)
-		go func() {
-			for _, b := range a.bidders {
-				b.placeBid(bc)
-			}
-			close(bc)
-		}()
-
-		//For each bid, print it and add it to the slice, then sort by amount
-		for bid := range bc {
-			// log.Printf("bid=%v\n", bid)
-			bids = append(bids, *bid)
+		//Grab each bid, print it and add it to the slice, then sort by amount
+		var bids []bid
+		for range bidderCount {
+			//Signal to bidder that the auction is open for this item
+			openc <- struct{}{}
+			//Take bid
+			bid := <-bidc
+			log.Printf("%s: $%d\n", bid.bidderID, bid.amount)
+			bids = append(bids, bid)
 		}
+
 		slices.SortStableFunc(bids, func(a, b bid) int {
 			return cmp.Compare(a.amount, b.amount)
 		})
@@ -92,7 +88,7 @@ func (a *auctioneer) runAuction() {
 		wbid := bids[len(bids)-1]
 		a.bidders[wbid.bidderID].payBid(wbid.amount)
 		a.bidders[wbid.bidderID].won++
-		log.Printf("%s won %s for $%d! Wallet remaining: $%d, Won: %d\n", wbid.bidderID, item, wbid.amount, a.bidders[wbid.bidderID].wallet, a.bidders[wbid.bidderID].won)
+		log.Printf("%s won %s for $%d! Wallet remaining: $%d, Won: %d\n\n", wbid.bidderID, item, wbid.amount, a.bidders[wbid.bidderID].wallet, a.bidders[wbid.bidderID].won)
 	}
 }
 
@@ -105,12 +101,15 @@ type bidder struct {
 
 // placeBid generates a random amount and places it on the bids channels
 // Change the signature of this function as required
-func (b *bidder) placeBid(bc chan<- *bid) {
-	mybid := bid{
-		bidderID: string(b.id),
-		amount:   getRandomAmount(b.wallet),
+func (b *bidder) placeBid(openc <-chan struct{}, bidc chan<- bid) {
+	for range len(items) {
+		<-openc
+		mybid := bid{
+			bidderID: string(b.id),
+			amount:   getRandomAmount(b.wallet),
+		}
+		bidc <- mybid
 	}
-	bc <- &mybid
 }
 
 // payBid subtracts the bid amount from the wallet of the auction winner
@@ -121,6 +120,12 @@ func (b *bidder) payBid(amount int) {
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	log.Println("Welcome to the LinkedIn Learning auction.")
+
+	//openc: signal channel to tell bidders that auction is open for the current item
+	//bidc: buffered channel for bidders to send bids to the auctioneer
+	openc := make(chan struct{})
+	bidc := make(chan bid, bidderCount)
+
 	bidders := make(map[string]*bidder, bidderCount)
 	for i := 0; i < bidderCount; i++ {
 		id := fmt.Sprint("Bidder ", i)
@@ -129,11 +134,12 @@ func main() {
 			wallet: walletAmount,
 		}
 		bidders[id] = &b
+		go b.placeBid(openc, bidc)
 	}
 	a := auctioneer{
 		bidders: bidders,
 	}
-	a.runAuction()
+	a.runAuction(openc, bidc)
 	log.Println("The LinkedIn Learning auction has finished!")
 }
 
