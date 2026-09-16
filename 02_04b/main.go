@@ -28,6 +28,12 @@ Plan
 
 Notes
 - Not sure why the bidders are placing bids as soon as they're created (without an item being announced), so I will move that call
+
+Solution video:
+- The bidders were placing bids because the instructor was expecting to use a signal channel and a bid channel and pass those between the bidders and the auctioneer
+- Auctioneer signals to all bidders that the auction is open for the current item, and receives all "bid" objects via the other channel
+- Each bidder waits to receive the auction open signal, then sends its bid on the bid channel
+- It didn't occur to me that I shouldn't change the main code, but it was possible to solve this challenge just by modifying the function signatures (and creating helper functions)
 */
 
 // the amount of bidders we have at our auction
