@@ -1,9 +1,11 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"log"
 	"math/rand"
+	"slices"
 	"time"
 )
 
@@ -57,9 +59,34 @@ type auctioneer struct {
 // runAuction and manages the auction for all the items to be sold
 // Change the signature of this function as required
 func (a *auctioneer) runAuction() {
+
 	for _, item := range items {
+		bc := make(chan *bid)
 		log.Printf("Opening bids for %s!\n", item)
-		panic("NOT IMPLEMENTED YET")
+
+		var bids []bid = make([]bid, 0)
+		//Each bidder places their bid on the channel (bc)
+		go func() {
+			for _, b := range a.bidders {
+				b.placeBid(bc)
+			}
+			close(bc)
+		}()
+
+		//For each bid, print it and add it to the slice, then sort by amount
+		for bid := range bc {
+			// log.Printf("bid=%v\n", bid)
+			bids = append(bids, *bid)
+		}
+		slices.SortStableFunc(bids, func(a, b bid) int {
+			return cmp.Compare(a.amount, b.amount)
+		})
+
+		//wbid = winning bid
+		wbid := bids[len(bids)-1]
+		a.bidders[wbid.bidderID].payBid(wbid.amount)
+		a.bidders[wbid.bidderID].won++
+		log.Printf("%s won %s for $%d! Wallet remaining: $%d, Won: %d\n", wbid.bidderID, item, wbid.amount, a.bidders[wbid.bidderID].wallet, a.bidders[wbid.bidderID].won)
 	}
 }
 
@@ -67,12 +94,17 @@ func (a *auctioneer) runAuction() {
 type bidder struct {
 	id     string
 	wallet int
+	won    int
 }
 
 // placeBid generates a random amount and places it on the bids channels
 // Change the signature of this function as required
-func (b *bidder) placeBid() {
-	panic("NOT IMPLEMENTED YET")
+func (b *bidder) placeBid(bc chan<- *bid) {
+	mybid := bid{
+		bidderID: string(b.id),
+		amount:   getRandomAmount(b.wallet),
+	}
+	bc <- &mybid
 }
 
 // payBid subtracts the bid amount from the wallet of the auction winner
@@ -91,7 +123,6 @@ func main() {
 			wallet: walletAmount,
 		}
 		bidders[id] = &b
-		go b.placeBid()
 	}
 	a := auctioneer{
 		bidders: bidders,
