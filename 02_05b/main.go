@@ -67,6 +67,8 @@ func (p *coffeeShop) barista(name string) {
 		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
 		case <-p.orderCoffee:
 			p.registerOrder()
+
+			//Print status before signaling the coffee is done to prevent unexpected log messages being emitted in the wrong order
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
 		case <-p.closeShop:
@@ -86,8 +88,10 @@ func (p *coffeeShop) customer(name string) {
 			if ok {
 				log.Printf("%s orders a coffee!\n", name)
 				p.orderCoffee <- struct{}{}
-				log.Printf("%s enjoys a coffee!\n", name)
+
+				//Block the print until the coffee is ready, or you get results like "Customer enjoys coffee!" followed by "Barista makes a coffee."...which is intuitive, when I thought about it.
 				<-p.finishCoffee
+				log.Printf("%s enjoys a coffee!\n", name)
 			}
 		case <-p.closeShop:
 			log.Printf("%s leaves\n", name)
