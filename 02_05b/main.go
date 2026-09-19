@@ -26,9 +26,9 @@ Post-solution notes:
 */
 
 // setup constants
-const baristaCount = 3
-const customerCount = 20
-const maxOrderCount = 40
+const baristaCount = 1
+const customerCount = 1
+const maxOrderCount = 1
 
 // the total amount of drinks that the bartenders have made
 type coffeeShop struct {
@@ -36,6 +36,9 @@ type coffeeShop struct {
 
 	orderCoffee  chan struct{}
 	finishCoffee chan struct{}
+
+	//Fan-out(?) orders from a queue
+	nextCustomer chan struct{}
 	closeShop    chan struct{}
 
 	mux sync.Mutex
@@ -48,6 +51,7 @@ func (p *coffeeShop) registerOrder() {
 
 	p.orderCount++
 	if p.orderCount == maxOrderCount {
+		//This is a neat trick from the solution to use a channel signal that a process is finished without sending anything over it
 		close(p.closeShop)
 	}
 }
@@ -61,7 +65,7 @@ func (p *coffeeShop) barista(name string) {
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
 		case <-p.closeShop:
-			log.Printf("%s leaves", name)
+			log.Printf("%s leaves\n", name)
 			return
 		}
 	}
@@ -71,12 +75,13 @@ func (p *coffeeShop) barista(name string) {
 func (p *coffeeShop) customer(name string) {
 	for {
 		select {
-		case p.orderCoffee <- struct{}{}:
-			log.Printf("%s orders a coffee!", name)
+		case <-p.nextCustomer:
+			p.orderCoffee <- struct{}{}
+			log.Printf("%s orders a coffee!\n", name)
 			<-p.finishCoffee
 			log.Printf("%s enjoys a coffee!\n", name)
 		case <-p.closeShop:
-			log.Printf("%s leaves", name)
+			log.Printf("%s leaves\n", name)
 			return
 		}
 	}
@@ -86,12 +91,24 @@ func main() {
 	log.Println("Welcome to the Level Up Go coffee shop!")
 	orderCoffee := make(chan struct{}, baristaCount)
 	finishCoffee := make(chan struct{}, baristaCount)
+	nextCustomer := make(chan struct{})
 	closeShop := make(chan struct{})
+
 	p := coffeeShop{
 		orderCoffee:  orderCoffee,
 		finishCoffee: finishCoffee,
+		nextCustomer: nextCustomer,
 		closeShop:    closeShop,
 	}
+
+	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
+	go func() {
+		for range maxOrderCount {
+			nextCustomer <- struct{}{}
+		}
+		close(nextCustomer)
+	}()
+
 	for i := 0; i < baristaCount; i++ {
 		go p.barista(fmt.Sprint("Barista-", i))
 	}
