@@ -60,6 +60,7 @@ func (p *coffeeShop) registerOrder() {
 func (p *coffeeShop) barista(name string) {
 	for {
 		select {
+			//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
 		case <-p.orderCoffee:
 			p.registerOrder()
 			log.Printf("%s makes a coffee.\n", name)
@@ -75,11 +76,14 @@ func (p *coffeeShop) barista(name string) {
 func (p *coffeeShop) customer(name string) {
 	for {
 		select {
-		case <-p.nextCustomer:
-			p.orderCoffee <- struct{}{}
-			log.Printf("%s orders a coffee!\n", name)
-			<-p.finishCoffee
-			log.Printf("%s enjoys a coffee!\n", name)
+		case _, ok := <-p.nextCustomer:
+			//Use "ok" to ensure that the channel is open before accepting the next customer's order
+			if ok {
+				p.orderCoffee <- struct{}{}
+				log.Printf("%s orders a coffee!\n", name)
+				<-p.finishCoffee
+				log.Printf("%s enjoys a coffee!\n", name)
+			}
 		case <-p.closeShop:
 			log.Printf("%s leaves\n", name)
 			return
@@ -100,13 +104,12 @@ func main() {
 		nextCustomer: nextCustomer,
 		closeShop:    closeShop,
 	}
-
 	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
 	go func() {
 		for range maxOrderCount {
-			nextCustomer <- struct{}{}
+			p.nextCustomer <- struct{}{}
 		}
-		close(nextCustomer)
+		close(p.nextCustomer)
 	}()
 
 	for i := 0; i < baristaCount; i++ {
