@@ -47,7 +47,7 @@ Questions:
 
 Command line tests:
 - for ii in {1..10}; do echo "*** run $ii ***"; go run -race main.go 2>&1 | tee runs/$ii.log ; sleep 1; echo; done # Run 10x, tee results to file
-- grep -nE '(leaves|clocks|shortly|Time|Bye)' # Print lines tracking when customers & baristas leave the store relative to their respective announcements
+- grep -nE '(leaves|clocks|shortly|Time|Bye)' runs/n.log # Print lines tracking when customers & baristas leave the store relative to their respective announcements from run 'n'
 */
 
 // setup constants
