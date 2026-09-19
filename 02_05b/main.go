@@ -86,9 +86,9 @@ func (p *coffeeShop) openShop() {
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
-}
 
-func (p *coffeeShop) closeShop() {
+	<-p.closeUp //shop: wait for signal to all customers that shop is closing before continuing
+
 	//Wait for customers to leave before continuing; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
 	// 	the baristas get the signal to clock out
 	log.Println("---The Level Up Go coffee shop is closing shortly...---")
@@ -158,8 +158,6 @@ func main() {
 	p := NewCoffeeShop()
 
 	p.openShop()
-	<-p.closeUp //shop: wait for signal to all customers that shop is closing before continuing
-	p.closeShop()
 }
 
 func NewCoffeeShop() *coffeeShop {
