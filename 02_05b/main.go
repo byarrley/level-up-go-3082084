@@ -24,6 +24,24 @@ Post-solution notes:
 - If it's possible with having the same channel send in the consumer select and receive in the barista select, I don't see it.
 	There are few examples of send channels in use (at least that I've been able to find), and they tend to be for time outs.
 
+Post-solution updates:
+- Remove channel buffers
+- Ensure that log messages are sent as signals, so the print statements align with the channel receives
+- Ensure that all customer workers return before barista workers
+- Ensure that all barista workers return before the final exit message
+- Move creation of coffeeShop objects to a function
+Lessons Learned:
+- It turns out there were a couple of bugs not highlighted in the video:
+	* Consumers never _stopped_ placing orders, even after the closeShop signal was sent, resulting in coffees being produced _after_ the shop was supposed to be closed.  One of the
+		symptoms of this was the 'order/make/enjoy' messages appearing after the announcement.
+			- The fix was to create the 'nextCustomer' channel in main, send maxOrderCount signals, and close it
+			- This would also allow the customers to 'range' over the 'nextCustomer' channel instead of running an infinite select loop
+			- Logically, baristas _should_ run in an infinite loop until they receive the signal to clock out
+	* The print statements were out of sync with the signals...so if you want a log message to coincide with a signal, it seems like you have to send the message on the channel
+		and print it on the _receive_ side, instead of sending a struct{}{} and attempting to print after the send.
+		There may be a better mechanism available in the Sync package to do this sort of thing
+	* Buffered channels may be obscuring data races or other issues; if you can't make it work without using a buffered channel, there's probably something wrong
+
 Command line tests:
 - for ii in {1..10}; do echo "*** run $ii ***"; go run -race main.go 2>&1 | tee runs/$ii.log ; sleep 1; echo; done # Run 10x, tee results to file
 - grep -nE '(leaves|clocks|shortly|Time|Bye)' # Print lines tracking when customers & baristas leave the store relative to their respective announcements
@@ -41,9 +59,8 @@ type coffeeShop struct {
 	orderCoffee  chan string
 	finishCoffee chan string
 
-	nextCustomer chan struct{} //Fan-out(?) orders from a queue
-
-	closeShop chan struct{} //Signal to customers that the shop is closed
+	nextCustomer chan struct{} //Fan-out(?) orders from a queue.  WARNING: Attempting to set this channel to 'nil' introduces data races
+	closeShop    chan struct{} //Signal to customers that the shop is closed
 
 	//Channels to signal which baristas/customers have left.  If the status isn't sent with the signal, the logs may become out of sync with the signals
 	baristaLeft  chan string
@@ -84,7 +101,7 @@ func (p *coffeeShop) barista(name string) {
 func (p *coffeeShop) customer(name string) {
 	for {
 		select {
-		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order.  Attempting to set the channel to 'nil' introduces data races
+		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order.
 			//Use "ok" to ensure that the channel is open before accepting the next customer's order
 			if ok {
 				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
@@ -107,7 +124,7 @@ func main() {
 		for range maxOrderCount {
 			p.nextCustomer <- struct{}{} //shop: call next customer ready to order
 		}
-		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.  Setting to 'nil' here introduces a data race
+		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.
 	}()
 
 	for i := 0; i < baristaCount; i++ {
