@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 )
 
 // The Task: Given a faulty concurrent simulation, implement a fix to ensure that there are no race conditions or crashes
@@ -30,11 +31,20 @@ type coffeeShop struct {
 
 	orderCoffee  chan struct{}
 	finishCoffee chan struct{}
+	closeShop    chan struct{}
+
+	mux sync.Mutex
 }
 
 // registerOrder ensures that the order made by the baristas is counted
 func (p *coffeeShop) registerOrder() {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
 	p.orderCount++
+	if p.orderCount == maxOrderCount {
+		close(p.closeShop)
+	}
 }
 
 // barista is the resource producer of the coffee shop
@@ -45,6 +55,9 @@ func (p *coffeeShop) barista(name string) {
 			p.registerOrder()
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
+		case <-p.closeShop:
+			log.Printf("%s leaves", name)
+			return
 		}
 	}
 }
@@ -57,6 +70,9 @@ func (p *coffeeShop) customer(name string) {
 			log.Printf("%s orders a coffee!", name)
 			<-p.finishCoffee
 			log.Printf("%s enjoys a coffee!\n", name)
+		case <-p.closeShop:
+			log.Printf("%s leaves", name)
+			return
 		}
 	}
 }
@@ -65,9 +81,11 @@ func main() {
 	log.Println("Welcome to the Level Up Go coffee shop!")
 	orderCoffee := make(chan struct{}, baristaCount)
 	finishCoffee := make(chan struct{}, baristaCount)
+	closeShop := make(chan struct{})
 	p := coffeeShop{
 		orderCoffee:  orderCoffee,
 		finishCoffee: finishCoffee,
+		closeShop:    closeShop,
 	}
 	for i := 0; i < baristaCount; i++ {
 		go p.barista(fmt.Sprint("Barista-", i))
@@ -75,5 +93,8 @@ func main() {
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
+	<-p.closeShop
+
+	log.Printf("Total coffees served: %d", p.orderCount)
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
