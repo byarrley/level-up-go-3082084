@@ -103,21 +103,8 @@ func (p *coffeeShop) customer(name string) {
 
 func main() {
 	log.Println("Welcome to the Level Up Go coffee shop!")
-	orderCoffee := make(chan struct{})
-	finishCoffee := make(chan struct{})
-	nextCustomer := make(chan struct{})
-	closeShop := make(chan struct{})
-	baristaLeft := make(chan struct{})
-	customerLeft := make(chan struct{})
+	p := NewCoffeeShop()
 
-	p := coffeeShop{
-		orderCoffee:  orderCoffee,
-		finishCoffee: finishCoffee,
-		nextCustomer: nextCustomer,
-		closeShop:    closeShop,
-		baristaLeft:  baristaLeft,
-		customerLeft: customerLeft,
-	}
 	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
 	go func() {
 		for range maxOrderCount {
@@ -146,4 +133,17 @@ func main() {
 	//This line introduces a data race, because p.orderCount is still being updated after the shop was "closed"!
 	log.Printf("Total coffees served: %d", p.orderCount)
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
+}
+
+func NewCoffeeShop() *coffeeShop {
+	p := coffeeShop{
+		orderCoffee:  make(chan struct{}),
+		finishCoffee: make(chan struct{}),
+		nextCustomer: make(chan struct{}),
+		closeShop:    make(chan struct{}),
+		clockOut:     make(chan struct{}),
+		baristaLeft:  make(chan struct{}),
+		customerLeft: make(chan struct{}),
+	}
+	return &p
 }
