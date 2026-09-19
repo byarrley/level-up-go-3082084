@@ -18,6 +18,11 @@ Hints:
 Solution:
 - I got stuck on this one, it turns out that the solution is to use a third channel that signals to the other goroutines that the shop is closed, by simply closing the channel
 - However, I'm curious to see if the order count goes over the max before the program actually shuts down
+
+Post-solution notes:
+- Yes, the count _can_ go over the max before the program exits (if you run it enough times)
+- If it's possible with having the same channel send in the consumer select and receive in the barista select, I don't see it.
+	There are few examples of send channels in use (at least that I've been able to find), and they tend to be for time outs.
 */
 
 // setup constants
