@@ -26,9 +26,9 @@ Post-solution notes:
 */
 
 // setup constants
-const baristaCount = 10
-const customerCount = 1
-const maxOrderCount = 10
+const baristaCount = 2
+const customerCount = 8
+const maxOrderCount = 8
 
 // the total amount of drinks that the bartenders have made
 type coffeeShop struct {
@@ -40,8 +40,6 @@ type coffeeShop struct {
 	nextCustomer chan struct{} //Fan-out(?) orders from a queue
 
 	closeShop chan struct{} //Signal to customers that the shop is closed
-	clockOut  chan struct{} //Signal to baristas that they can leave for the night
-	lockUp    chan struct{} //Signal that shop is empty and can be locked
 
 	//Channels to signal which baristas/customers have left.  If the status isn't sent with the signal, the logs may become out of sync with the signals
 	baristaLeft  chan string
@@ -68,10 +66,10 @@ func (p *coffeeShop) barista(name string) {
 		select {
 		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
 		case msg := <-p.orderCoffee: //barista: order received
-			p.registerOrder()                                           //barista: register order
-			log.Printf("%s", msg)                                       //barista: log order
-			p.finishCoffee <- fmt.Sprintf("%s makes a coffee.\n", name) //barista: serve order
-		case <-p.clockOut: //barista: receive signal that it's time to clock out
+			p.registerOrder()                                             //barista: register order
+			log.Printf("%s", msg)                                         //barista: log order
+			p.finishCoffee <- fmt.Sprintf("> %s makes a coffee.\n", name) //barista: serve order
+		case <-p.closeShop: //barista: receive signal that it's time to clock out
 			p.baristaLeft <- fmt.Sprintf("%s clocks out\n", name) //barista: signal that this barista has clocked out
 			return
 		}
@@ -87,7 +85,7 @@ func (p *coffeeShop) customer(name string) {
 			if ok {
 				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
 				log.Printf("%s", <-p.finishCoffee)                          //barista: coffee served
-				log.Printf("> %s enjoys a coffee!\n", name)                 //customer: drink coffee
+				log.Printf("%s enjoys a coffee!\n", name)                   //customer: drink coffee
 			}
 		case <-p.closeShop: //customer: receive signal that shop is closing
 			p.customerLeft <- fmt.Sprintf("%s leaves the shop\n", name) //customer: signal that this customer has left the shop
@@ -119,26 +117,18 @@ func main() {
 	//Wait for customers to leave before continuing; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
 	// 	the baristas get the signal to clock out
 	log.Println("---The Level Up Go coffee shop is closing shortly...---")
-	go func() {
-		for range customerCount {
-			log.Printf("%s", <-p.customerLeft)
-		}
-		close(p.clockOut) //shop: signal to all baristas that they can begin clocking out (this may not be necessary if the loop isn't run in a goroutine)
-	}()
+	for range customerCount {
+		log.Printf("%s", <-p.customerLeft)
+	}
 
 	//Annouce work done and that baristas can leave before continuing
-	<-p.clockOut //shop: wait for signal to clock out before continuing
-	log.Printf("Total coffees served: %d.  Great work team!", p.orderCount)
 	log.Println("***Time to clock out!***")
-	go func() {
-		for range baristaCount {
-			log.Printf("%s", <-p.baristaLeft)
-		}
-		close(p.lockUp) //shop: signal indicating that everyone is out of the shop (this may not be necessary if the loop isn't run in a goroutine)
-	}()
+	log.Printf("Total coffees served: %d.  Great work team!", p.orderCount)
+	for range baristaCount {
+		log.Printf("%s", <-p.baristaLeft)
+	}
 
 	//Block until all customers/baristas have completed their actions and have left
-	<-p.lockUp //shop: block until the shop is locked before printing the exit message
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
 
@@ -149,9 +139,7 @@ func NewCoffeeShop() *coffeeShop {
 		finishCoffee: make(chan string),
 		closeShop:    make(chan struct{}),
 		customerLeft: make(chan string),
-		clockOut:     make(chan struct{}),
 		baristaLeft:  make(chan string),
-		lockUp:       make(chan struct{}),
 	}
 	return &p
 }
