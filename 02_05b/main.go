@@ -23,6 +23,10 @@ Post-solution notes:
 - Yes, the count _can_ go over the max before the program exits (if you run it enough times)
 - If it's possible with having the same channel send in the consumer select and receive in the barista select, I don't see it.
 	There are few examples of send channels in use (at least that I've been able to find), and they tend to be for time outs.
+
+Command line tests:
+- for ii in {1..10}; do echo "*** run $ii ***"; go run -race main.go 2>&1 | tee runs/$ii.log ; sleep 1; echo; done # Run 10x, tee results to file
+- grep -nE '(leaves|clocks|shortly|Time|Bye)' # Print lines tracking when customers & baristas leave the store relative to their respective announcements
 */
 
 // setup constants
@@ -80,7 +84,7 @@ func (p *coffeeShop) barista(name string) {
 func (p *coffeeShop) customer(name string) {
 	for {
 		select {
-		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order
+		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order.  Attempting to set the channel to 'nil' introduces data races
 			//Use "ok" to ensure that the channel is open before accepting the next customer's order
 			if ok {
 				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
@@ -103,7 +107,7 @@ func main() {
 		for range maxOrderCount {
 			p.nextCustomer <- struct{}{} //shop: call next customer ready to order
 		}
-		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.  Probably can just set this to 'nil' and remove the 'ok' check
+		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.  Setting to 'nil' here introduces a data race
 	}()
 
 	for i := 0; i < baristaCount; i++ {
