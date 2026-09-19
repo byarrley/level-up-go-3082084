@@ -43,9 +43,9 @@ type coffeeShop struct {
 	clockOut  chan struct{} //Signal to baristas that they can leave for the night
 	lockUp    chan struct{} //Signal that shop is empty and can be locked
 
-	//Channels to signal which baristas/customers have left
-	baristaLeft  chan struct{}
-	customerLeft chan struct{}
+	//Channels to signal which baristas/customers have left.  If the status isn't sent with the signal, the logs may become out of sync with the signals
+	baristaLeft  chan string
+	customerLeft chan string
 
 	mux sync.Mutex
 }
@@ -74,8 +74,7 @@ func (p *coffeeShop) barista(name string) {
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
 		case <-p.clockOut:
-			p.baristaLeft <- struct{}{}
-			log.Printf("%s leaves\n", name)
+			p.baristaLeft <- fmt.Sprintf("%s leaves\n", name)
 			return
 		}
 	}
@@ -96,8 +95,7 @@ func (p *coffeeShop) customer(name string) {
 				log.Printf("%s enjoys a coffee!\n", name)
 			}
 		case <-p.closeShop:
-			log.Printf("%s leaves\n", name)
-			p.customerLeft <- struct{}{}
+			p.customerLeft <- fmt.Sprintf("%s leaves\n", name)
 			return
 		}
 	}
@@ -128,7 +126,7 @@ func main() {
 	log.Println("---The Level Up Go coffee shop is closing shortly...---")
 	go func() {
 		for range customerCount {
-			<-p.customerLeft
+			log.Printf("%s", <-p.customerLeft)
 		}
 		close(p.clockOut)
 	}()
@@ -141,7 +139,7 @@ func main() {
 	log.Println("***Time to clock out!***")
 	go func() {
 		for range baristaCount {
-			<-p.baristaLeft
+			log.Printf("%s", <-p.baristaLeft)
 		}
 		close(p.lockUp)
 	}()
@@ -157,9 +155,9 @@ func NewCoffeeShop() *coffeeShop {
 		orderCoffee:  make(chan struct{}),
 		finishCoffee: make(chan struct{}),
 		closeShop:    make(chan struct{}),
-		customerLeft: make(chan struct{}),
+		customerLeft: make(chan string),
 		clockOut:     make(chan struct{}),
-		baristaLeft:  make(chan struct{}),
+		baristaLeft:  make(chan string),
 		lockUp:       make(chan struct{}),
 	}
 	return &p
