@@ -42,6 +42,9 @@ Lessons Learned:
 		There may be a better mechanism available in the Sync package to do this sort of thing
 	* Buffered channels may be obscuring data races or other issues; if you can't make it work without using a buffered channel, there's probably something wrong
 
+Questions:
+- What _was_ the purpose of buffering the channels in the first place?
+
 Command line tests:
 - for ii in {1..10}; do echo "*** run $ii ***"; go run -race main.go 2>&1 | tee runs/$ii.log ; sleep 1; echo; done # Run 10x, tee results to file
 - grep -nE '(leaves|clocks|shortly|Time|Bye)' # Print lines tracking when customers & baristas leave the store relative to their respective announcements
