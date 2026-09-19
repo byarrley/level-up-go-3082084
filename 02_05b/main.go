@@ -51,9 +51,9 @@ Command line tests:
 */
 
 // setup constants
-const baristaCount = 2
-const customerCount = 8
-const maxOrderCount = 8
+const baristaCount = 3
+const customerCount = 20
+const maxOrderCount = 40
 
 // the total amount of drinks that the bartenders have made
 type coffeeShop struct {
