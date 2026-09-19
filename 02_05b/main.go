@@ -34,8 +34,8 @@ const maxOrderCount = 10
 type coffeeShop struct {
 	orderCount int
 
-	orderCoffee  chan struct{}
-	finishCoffee chan struct{}
+	orderCoffee  chan string
+	finishCoffee chan string
 
 	nextCustomer chan struct{} //Fan-out(?) orders from a queue
 
@@ -67,14 +67,12 @@ func (p *coffeeShop) barista(name string) {
 	for {
 		select {
 		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
-		case <-p.orderCoffee:
-			p.registerOrder()
-
-			//Print status before signaling the coffee is done to prevent unexpected log messages being emitted in the wrong order
-			log.Printf("%s makes a coffee.\n", name)
-			p.finishCoffee <- struct{}{}
-		case <-p.clockOut:
-			p.baristaLeft <- fmt.Sprintf("%s leaves\n", name)
+		case msg := <-p.orderCoffee: //barista: order received
+			p.registerOrder()                                           //barista: register order
+			log.Printf("%s", msg)                                       //barista: log order
+			p.finishCoffee <- fmt.Sprintf("%s makes a coffee.\n", name) //barista: serve order
+		case <-p.clockOut: //barista: receive signal that it's time to clock out
+			p.baristaLeft <- fmt.Sprintf("%s clocks out\n", name) //barista: signal that this barista has clocked out
 			return
 		}
 	}
@@ -84,18 +82,15 @@ func (p *coffeeShop) barista(name string) {
 func (p *coffeeShop) customer(name string) {
 	for {
 		select {
-		case _, ok := <-p.nextCustomer:
+		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order
 			//Use "ok" to ensure that the channel is open before accepting the next customer's order
 			if ok {
-				log.Printf("%s orders a coffee!\n", name)
-				p.orderCoffee <- struct{}{}
-
-				//Block the print until the coffee is ready, or you get results like "Customer enjoys coffee!" followed by "Barista makes a coffee."...which is intuitive, when I thought about it.
-				<-p.finishCoffee
-				log.Printf("%s enjoys a coffee!\n", name)
+				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
+				log.Printf("%s", <-p.finishCoffee)                          //barista: coffee served
+				log.Printf("> %s enjoys a coffee!\n", name)                 //customer: drink coffee
 			}
-		case <-p.closeShop:
-			p.customerLeft <- fmt.Sprintf("%s leaves\n", name)
+		case <-p.closeShop: //customer: receive signal that shop is closing
+			p.customerLeft <- fmt.Sprintf("%s leaves the shop\n", name) //customer: signal that this customer has left the shop
 			return
 		}
 	}
@@ -108,9 +103,9 @@ func main() {
 	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
 	go func() {
 		for range maxOrderCount {
-			p.nextCustomer <- struct{}{}
+			p.nextCustomer <- struct{}{} //shop: call next customer ready to order
 		}
-		close(p.nextCustomer)
+		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.  Probably can just set this to 'nil' and remove the 'ok' check
 	}()
 
 	for i := 0; i < baristaCount; i++ {
@@ -119,7 +114,7 @@ func main() {
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
-	<-p.closeShop
+	<-p.closeShop //shop: wait for signal to all customers that shop is closing before continuing
 
 	//Wait for customers to leave before continuing; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
 	// 	the baristas get the signal to clock out
@@ -128,32 +123,30 @@ func main() {
 		for range customerCount {
 			log.Printf("%s", <-p.customerLeft)
 		}
-		close(p.clockOut)
+		close(p.clockOut) //shop: signal to all baristas that they can begin clocking out (this may not be necessary if the loop isn't run in a goroutine)
 	}()
 
-	//I wonder how this will work...will we still have baristas leaving before clocking out?
-	<-p.clockOut
-
 	//Annouce work done and that baristas can leave before continuing
+	<-p.clockOut //shop: wait for signal to clock out before continuing
 	log.Printf("Total coffees served: %d.  Great work team!", p.orderCount)
 	log.Println("***Time to clock out!***")
 	go func() {
 		for range baristaCount {
 			log.Printf("%s", <-p.baristaLeft)
 		}
-		close(p.lockUp)
+		close(p.lockUp) //shop: signal indicating that everyone is out of the shop (this may not be necessary if the loop isn't run in a goroutine)
 	}()
 
 	//Block until all customers/baristas have completed their actions and have left
-	<-p.lockUp
+	<-p.lockUp //shop: block until the shop is locked before printing the exit message
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
 
 func NewCoffeeShop() *coffeeShop {
 	p := coffeeShop{
 		nextCustomer: make(chan struct{}),
-		orderCoffee:  make(chan struct{}),
-		finishCoffee: make(chan struct{}),
+		orderCoffee:  make(chan string),
+		finishCoffee: make(chan string),
 		closeShop:    make(chan struct{}),
 		customerLeft: make(chan string),
 		clockOut:     make(chan struct{}),
