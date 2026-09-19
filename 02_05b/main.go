@@ -93,8 +93,9 @@ func main() {
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
-	<-p.closeShop
+	<-closeShop
 
+	//This line introduces a data race, because p.orderCount is still being updated after the shop was "closed"!
 	log.Printf("Total coffees served: %d", p.orderCount)
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
