@@ -60,7 +60,7 @@ type coffeeShop struct {
 	finishCoffee chan string
 
 	nextCustomer chan struct{} //Fan-out(?) orders from a queue.  WARNING: Attempting to set this channel to 'nil' introduces data races
-	closeShop    chan struct{} //Signal to customers that the shop is closed
+	closeUp      chan struct{} //Signal to customers that the shop is closed
 
 	//Channels to signal which baristas/customers have left.  If the status isn't sent with the signal, the logs may become out of sync with the signals
 	baristaLeft  chan string
@@ -69,56 +69,7 @@ type coffeeShop struct {
 	mux sync.Mutex
 }
 
-// registerOrder ensures that the order made by the baristas is counted
-func (p *coffeeShop) registerOrder() {
-	p.mux.Lock()
-	defer p.mux.Unlock()
-
-	p.orderCount++
-	if p.orderCount == maxOrderCount {
-		//This is a neat trick from the solution to use a channel signal that a process is finished without sending anything over it
-		close(p.closeShop)
-	}
-}
-
-// barista is the resource producer of the coffee shop
-func (p *coffeeShop) barista(name string) {
-	for {
-		select {
-		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
-		case msg := <-p.orderCoffee: //barista: order received
-			p.registerOrder()                                             //barista: register order
-			log.Printf("%s", msg)                                         //barista: log order
-			p.finishCoffee <- fmt.Sprintf("> %s makes a coffee.\n", name) //barista: serve order
-		case <-p.closeShop: //barista: receive signal that it's time to clock out
-			p.baristaLeft <- fmt.Sprintf("%s clocks out\n", name) //barista: signal that this barista has clocked out
-			return
-		}
-	}
-}
-
-// customer is the resource consumer of the coffee shop
-func (p *coffeeShop) customer(name string) {
-	for {
-		select {
-		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order.
-			//Use "ok" to ensure that the channel is open before accepting the next customer's order
-			if ok {
-				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
-				log.Printf("%s", <-p.finishCoffee)                          //barista: coffee served
-				log.Printf("%s enjoys a coffee!\n", name)                   //customer: drink coffee
-			}
-		case <-p.closeShop: //customer: receive signal that shop is closing
-			p.customerLeft <- fmt.Sprintf("%s leaves the shop\n", name) //customer: signal that this customer has left the shop
-			return
-		}
-	}
-}
-
-func main() {
-	log.Println("Welcome to the Level Up Go coffee shop!")
-	p := NewCoffeeShop()
-
+func (p *coffeeShop) openShop() {
 	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
 	go func() {
 		for range maxOrderCount {
@@ -126,15 +77,15 @@ func main() {
 		}
 		close(p.nextCustomer) //shop: signal to all customers that no more orders can be placed.
 	}()
-
 	for i := 0; i < baristaCount; i++ {
 		go p.barista(fmt.Sprint("Barista-", i))
 	}
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
-	<-p.closeShop //shop: wait for signal to all customers that shop is closing before continuing
+}
 
+func (p *coffeeShop) closeShop() {
 	//Wait for customers to leave before continuing; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
 	// 	the baristas get the signal to clock out
 	log.Println("---The Level Up Go coffee shop is closing shortly...---")
@@ -153,12 +104,67 @@ func main() {
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
 
+// registerOrder ensures that the order made by the baristas is counted
+func (p *coffeeShop) registerOrder() {
+	p.mux.Lock()
+	defer p.mux.Unlock()
+
+	p.orderCount++
+	if p.orderCount == maxOrderCount {
+		//This is a neat trick from the solution to use a channel signal that a process is finished without sending anything over it
+		close(p.closeUp)
+	}
+}
+
+// barista is the resource producer of the coffee shop
+func (p *coffeeShop) barista(name string) {
+	for {
+		select {
+		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
+		case msg := <-p.orderCoffee: //barista: order received
+			p.registerOrder()                                             //barista: register order
+			log.Printf("%s", msg)                                         //barista: log order
+			p.finishCoffee <- fmt.Sprintf("> %s makes a coffee.\n", name) //barista: serve order
+		case <-p.closeUp: //barista: receive signal that it's time to clock out
+			p.baristaLeft <- fmt.Sprintf("%s clocks out\n", name) //barista: signal that this barista has clocked out
+			return
+		}
+	}
+}
+
+// customer is the resource consumer of the coffee shop
+func (p *coffeeShop) customer(name string) {
+	for {
+		select {
+		case _, ok := <-p.nextCustomer: //customer: this customer is next to place an order.
+			//Use "ok" to ensure that the channel is open before accepting the next customer's order
+			if ok {
+				p.orderCoffee <- fmt.Sprintf("%s orders a coffee!\n", name) //customer: order sent
+				log.Printf("%s", <-p.finishCoffee)                          //barista: coffee served
+				log.Printf("%s enjoys a coffee!\n", name)                   //customer: drink coffee
+			}
+		case <-p.closeUp: //customer: receive signal that shop is closing
+			p.customerLeft <- fmt.Sprintf("%s leaves the shop\n", name) //customer: signal that this customer has left the shop
+			return
+		}
+	}
+}
+
+func main() {
+	log.Println("Welcome to the Level Up Go coffee shop!")
+	p := NewCoffeeShop()
+
+	p.openShop()
+	<-p.closeUp //shop: wait for signal to all customers that shop is closing before continuing
+	p.closeShop()
+}
+
 func NewCoffeeShop() *coffeeShop {
 	p := coffeeShop{
 		nextCustomer: make(chan struct{}),
 		orderCoffee:  make(chan string),
 		finishCoffee: make(chan string),
-		closeShop:    make(chan struct{}),
+		closeUp:      make(chan struct{}),
 		customerLeft: make(chan string),
 		baristaLeft:  make(chan string),
 	}
