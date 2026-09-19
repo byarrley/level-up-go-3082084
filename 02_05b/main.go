@@ -26,7 +26,7 @@ Post-solution notes:
 
 Post-solution updates:
 - Remove channel buffers
-- Ensure that log messages are sent as signals, so the print statements align with the channel receives
+- Ensure that signals are sent as strings representing the corresponding customer/barista actions, so the print statements align with the channel receives
 - Ensure that all customer workers return before barista workers
 - Ensure that all barista workers return before the final exit message
 - Move creation of coffeeShop objects to a function
