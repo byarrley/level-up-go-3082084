@@ -26,9 +26,9 @@ Post-solution notes:
 */
 
 // setup constants
-const baristaCount = 1
+const baristaCount = 10
 const customerCount = 1
-const maxOrderCount = 1
+const maxOrderCount = 10
 
 // the total amount of drinks that the bartenders have made
 type coffeeShop struct {
@@ -41,6 +41,7 @@ type coffeeShop struct {
 
 	closeShop chan struct{} //Signal to customers that the shop is closed
 	clockOut  chan struct{} //Signal to baristas that they can leave for the night
+	lockUp    chan struct{} //Signal that shop is empty and can be locked
 
 	//Channels to signal which baristas/customers have left
 	baristaLeft  chan struct{}
@@ -73,8 +74,8 @@ func (p *coffeeShop) barista(name string) {
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
 		case <-p.clockOut:
-			log.Printf("%s leaves\n", name)
 			p.baristaLeft <- struct{}{}
+			log.Printf("%s leaves\n", name)
 			return
 		}
 	}
@@ -122,35 +123,44 @@ func main() {
 	}
 	<-p.closeShop
 
-	//Block until all customers have left; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
+	//Wait for customers to leave before continuing; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
 	// 	the baristas get the signal to clock out
 	log.Println("---The Level Up Go coffee shop is closing shortly...---")
-	for range customerCount {
-		<-p.customerLeft
-	}
-	close(p.clockOut)
+	go func() {
+		for range customerCount {
+			<-p.customerLeft
+		}
+		close(p.clockOut)
+	}()
 
 	//I wonder how this will work...will we still have baristas leaving before clocking out?
 	<-p.clockOut
-	//Block until all baristas have left
+
+	//Annouce work done and that baristas can leave before continuing
 	log.Printf("Total coffees served: %d.  Great work team!", p.orderCount)
 	log.Println("***Time to clock out!***")
-	for range baristaCount {
-		<-p.baristaLeft
-	}
+	go func() {
+		for range baristaCount {
+			<-p.baristaLeft
+		}
+		close(p.lockUp)
+	}()
 
+	//Block until all customers/baristas have completed their actions and have left
+	<-p.lockUp
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
 
 func NewCoffeeShop() *coffeeShop {
 	p := coffeeShop{
+		nextCustomer: make(chan struct{}),
 		orderCoffee:  make(chan struct{}),
 		finishCoffee: make(chan struct{}),
-		nextCustomer: make(chan struct{}),
 		closeShop:    make(chan struct{}),
+		customerLeft: make(chan struct{}),
 		clockOut:     make(chan struct{}),
 		baristaLeft:  make(chan struct{}),
-		customerLeft: make(chan struct{}),
+		lockUp:       make(chan struct{}),
 	}
 	return &p
 }
