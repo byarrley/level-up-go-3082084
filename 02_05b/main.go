@@ -41,6 +41,10 @@ type coffeeShop struct {
 	nextCustomer chan struct{}
 	closeShop    chan struct{}
 
+	//Channels to signal which baristas/customers have left
+	baristaLeft  chan struct{}
+	customerLeft chan struct{}
+
 	mux sync.Mutex
 }
 
@@ -60,13 +64,14 @@ func (p *coffeeShop) registerOrder() {
 func (p *coffeeShop) barista(name string) {
 	for {
 		select {
-			//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
+		//p.orderCoffee is never closed, so we don't have to ensure that it's open before receiving from it
 		case <-p.orderCoffee:
 			p.registerOrder()
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
 		case <-p.closeShop:
 			log.Printf("%s leaves\n", name)
+			p.baristaLeft <- struct{}{}
 			return
 		}
 	}
@@ -79,13 +84,14 @@ func (p *coffeeShop) customer(name string) {
 		case _, ok := <-p.nextCustomer:
 			//Use "ok" to ensure that the channel is open before accepting the next customer's order
 			if ok {
-				p.orderCoffee <- struct{}{}
 				log.Printf("%s orders a coffee!\n", name)
-				<-p.finishCoffee
+				p.orderCoffee <- struct{}{}
 				log.Printf("%s enjoys a coffee!\n", name)
+				<-p.finishCoffee
 			}
 		case <-p.closeShop:
 			log.Printf("%s leaves\n", name)
+			p.customerLeft <- struct{}{}
 			return
 		}
 	}
@@ -97,12 +103,16 @@ func main() {
 	finishCoffee := make(chan struct{})
 	nextCustomer := make(chan struct{})
 	closeShop := make(chan struct{})
+	baristaLeft := make(chan struct{})
+	customerLeft := make(chan struct{})
 
 	p := coffeeShop{
 		orderCoffee:  orderCoffee,
 		finishCoffee: finishCoffee,
 		nextCustomer: nextCustomer,
 		closeShop:    closeShop,
+		baristaLeft:  baristaLeft,
+		customerLeft: customerLeft,
 	}
 	//The shop won't take more than maxOrderCount orders, and due to the simplifications, we can treat this like a work queue and close the channel when all jobs have been submitted
 	go func() {
@@ -118,7 +128,16 @@ func main() {
 	for i := 0; i < customerCount; i++ {
 		go p.customer(fmt.Sprint("Customer-", i))
 	}
-	<-closeShop
+	<-p.closeShop
+
+	//Block until all customers have left
+	for range customerCount {
+		<-p.customerLeft
+	}
+	//Block until all baristas have left
+	for range baristaCount {
+		<-p.baristaLeft
+	}
 
 	//This line introduces a data race, because p.orderCount is still being updated after the shop was "closed"!
 	log.Printf("Total coffees served: %d", p.orderCount)
