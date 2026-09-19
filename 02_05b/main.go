@@ -37,9 +37,10 @@ type coffeeShop struct {
 	orderCoffee  chan struct{}
 	finishCoffee chan struct{}
 
-	//Fan-out(?) orders from a queue
-	nextCustomer chan struct{}
-	closeShop    chan struct{}
+	nextCustomer chan struct{} //Fan-out(?) orders from a queue
+
+	closeShop chan struct{} //Signal to customers that the shop is closed
+	clockOut  chan struct{} //Signal to baristas that they can leave for the night
 
 	//Channels to signal which baristas/customers have left
 	baristaLeft  chan struct{}
@@ -71,7 +72,7 @@ func (p *coffeeShop) barista(name string) {
 			//Print status before signaling the coffee is done to prevent unexpected log messages being emitted in the wrong order
 			log.Printf("%s makes a coffee.\n", name)
 			p.finishCoffee <- struct{}{}
-		case <-p.closeShop:
+		case <-p.clockOut:
 			log.Printf("%s leaves\n", name)
 			p.baristaLeft <- struct{}{}
 			return
@@ -121,17 +122,23 @@ func main() {
 	}
 	<-p.closeShop
 
-	//Block until all customers have left
+	//Block until all customers have left; it's OK if they leave _before_ the announcement, but they should have finished their actions and left before
+	// 	the baristas get the signal to clock out
+	log.Println("---The Level Up Go coffee shop is closing shortly...---")
 	for range customerCount {
 		<-p.customerLeft
 	}
+	close(p.clockOut)
+
+	//I wonder how this will work...will we still have baristas leaving before clocking out?
+	<-p.clockOut
 	//Block until all baristas have left
+	log.Printf("Total coffees served: %d.  Great work team!", p.orderCount)
+	log.Println("***Time to clock out!***")
 	for range baristaCount {
 		<-p.baristaLeft
 	}
 
-	//This line introduces a data race, because p.orderCount is still being updated after the shop was "closed"!
-	log.Printf("Total coffees served: %d", p.orderCount)
 	log.Println("The Level Up Go coffee shop has closed! Bye!")
 }
 
