@@ -89,8 +89,8 @@ func (p *coffeeShop) customer(name string) {
 
 func main() {
 	log.Println("Welcome to the Level Up Go coffee shop!")
-	orderCoffee := make(chan struct{}, baristaCount)
-	finishCoffee := make(chan struct{}, baristaCount)
+	orderCoffee := make(chan struct{})
+	finishCoffee := make(chan struct{})
 	nextCustomer := make(chan struct{})
 	closeShop := make(chan struct{})
 
